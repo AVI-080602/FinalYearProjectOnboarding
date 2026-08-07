@@ -1,0 +1,35 @@
+# local assistant config (not part of the project)
+CLAUDE.md
+
+# local deliverables and diagrams (kept in OneDrive, not in the repo)
+*.pdf
+Data Flow Simple.html
+Data Management Plan TE19.docx
+DMP Cheat Sheet.html
+ER Diagram.png
+System Design.html
+
+# regenerable data artifacts (rebuild with the pipeline, see README)
+sensory-navigator/sensory.db
+sensory-navigator/data/
+sensory-navigator/cache/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# frontend (when added)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# office lock files
+~$*
+
+# OS noise
+Thumbs.db
+.DS_Store

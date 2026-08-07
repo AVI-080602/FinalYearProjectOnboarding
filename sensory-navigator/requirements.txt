@@ -1,0 +1,10 @@
+requests>=2.32
+pandas>=2.2
+numpy>=2.0
+scipy>=1.14
+SQLAlchemy>=2.0
+streamlit>=1.38
+folium>=0.17
+streamlit-folium>=0.21
+networkx>=3.3
+osmnx>=2.0
