@@ -9,13 +9,14 @@ data.
 
 ```
 OnboardingProject/
-├── sensory-navigator/          the application
+├── sensory-navigator/          backend: engine + data pipeline (Python)
 │   ├── app/
 │   │   ├── config.py           datasets, CBD bounds, density bands, defaults
 │   │   ├── db.py               SQLAlchemy models (3NF, per the DMP)
 │   │   ├── ingest/             data pipeline (fetch_static, fetch_live, build_profiles)
 │   │   ├── graph/              OSM walk graph build + sensory layer join
 │   │   └── sli/                Sensory Load Index engine + router + forecast
+├── frontend/                   Next.js 16 + TypeScript + Tailwind (App Router)
 ├── Onboarding Presentation Slides.pptx   acceptance criteria (source of truth)
 ├── Onboarding requirements.docx          epics, user stories, DoD
 └── schema.sql                            database DDL (Lucid-importable)
@@ -65,6 +66,18 @@ for r in e.route((-37.8183, 144.9526), (-37.8110, 144.9730), C.DEFAULT_WEIGHTS, 
 
 The database (`sensory.db`) and graph artifacts (`data/`) are not committed:
 they are large and fully regenerable with the commands above.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev          # http://localhost:3000
+```
+
+Quality tooling: `npm run lint` (ESLint), `npm run format` (Prettier),
+TypeScript checked on build.
 
 ## Team workflow
 
