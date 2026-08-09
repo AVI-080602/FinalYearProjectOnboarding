@@ -208,6 +208,45 @@ def create_suggestion(body: SuggestionIn, request: Request):
             "message": "Saved for review. Nothing is published until a team member approves it."}
 
 
+_geocode_cache: dict[str, list] = {}
+
+
+@app.get("/api/geocode")
+def geocode(q: str):
+    """Search places/addresses near Melbourne CBD via Nominatim (OSM).
+    Proxied server-side to respect the usage policy (UA header, caching)."""
+    import requests as _rq
+
+    q = q.strip()
+    if len(q) < 3:
+        raise HTTPException(422, "query too short")
+    key = q.lower()
+    if key in _geocode_cache:
+        return {"results": _geocode_cache[key]}
+    r = _rq.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={
+            "q": q, "format": "jsonv2", "limit": 6, "countrycodes": "au",
+            "viewbox": f"{C.BBOX['lon_min']},{C.BBOX['lat_max']},{C.BBOX['lon_max']},{C.BBOX['lat_min']}",
+            "bounded": 1,
+        },
+        headers={"User-Agent": "sensory-navigator/0.1 (university accessibility project)"},
+        timeout=10,
+    )
+    r.raise_for_status()
+    results = [
+        {
+            "name": item["display_name"].split(",")[0],
+            "detail": ", ".join(item["display_name"].split(",")[1:3]).strip(),
+            "lat": float(item["lat"]),
+            "lon": float(item["lon"]),
+        }
+        for item in r.json()
+    ]
+    _geocode_cache[key] = results
+    return {"results": results}
+
+
 @app.get("/api/suggestions")
 def list_suggestions(status: str = "pending"):
     with session() as s:
