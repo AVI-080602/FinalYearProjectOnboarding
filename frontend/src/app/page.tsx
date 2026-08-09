@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchRoutes, fetchStatus, type Route } from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 import { ROUTE_ORDER } from "@/lib/route-colors";
@@ -14,7 +15,7 @@ const RouteMap = dynamic(() => import("@/components/route-map"), {
   ssr: false,
 });
 
-export default function Planner() {
+function PlannerContent() {
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -24,12 +25,29 @@ export default function Planner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string>("checking data…");
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchStatus()
       .then((s) => setDataStatus(s.data_status))
       .catch(() => setDataStatus("route service offline"));
   }, []);
+
+  useEffect(() => {
+    const toLat = searchParams.get("toLat");
+    const toLng = searchParams.get("toLng");
+    const toName = searchParams.get("toName");
+    if (!toLat || !toLng || !toName) return;
+
+    const lat = Number(toLat);
+    const lng = Number(toLng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    setDestination({
+      name: toName,
+      coords: [lat, lng],
+    });
+  }, [searchParams]);
 
   // AC 1.1.1: search routes between an entered start point and destination
   async function search() {
@@ -207,5 +225,13 @@ export default function Planner() {
         no tracking: your settings stay in your browser.
       </footer>
     </div>
+  );
+}
+
+export default function Planner() {
+  return (
+    <Suspense fallback={null}>
+      <PlannerContent />
+    </Suspense>
   );
 }

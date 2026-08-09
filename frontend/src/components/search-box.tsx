@@ -69,6 +69,8 @@ export default function SearchBox({
             return [...prev, ...geo.filter((g) => !names.has(g.name))].slice(0, 7);
           });
         }
+      } catch {
+        setSuggestions((prev) => prev.slice(0, 7));
       } finally {
         setBusy(false);
       }

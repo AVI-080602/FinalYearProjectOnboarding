@@ -5,6 +5,7 @@ import { useState } from "react";
 import { categoryOptions } from "@/lib/quiet-space-category";
 import AppHeader from "@/components/app-header";
 import SearchBox, { type Place } from "@/components/search-box";
+import { submitCalmPlaceSuggestion } from "@/lib/api";
 
 const PickMap = dynamic(() => import("@/components/pick-map"), { ssr: false });
 
@@ -14,42 +15,43 @@ export default function Page() {
   const [place, setPlace] = useState<Place | null>(null);
   const [pin, setPin] = useState<[number, number] | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // the location a submission actually uses: map pin wins, then searched place
   const coords = pin ?? place?.coords ?? null;
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!coords) return;
 
-    const newSuggestion = {
-      id: crypto.randomUUID(),
-      name,
-      category,
-      address: place?.name ?? "map pin",
-      latitude: coords[0],
-      longitude: coords[1],
-      status: "pending",
-      date: new Date().toISOString(),
-    };
+    setSubmitting(true);
+    setSuccessMsg("");
+    setErrorMsg("");
 
-    // TODO: Replace localStorage with POST /api/suggestions so submitted
-    // places leave the device and reach the team review queue.
-    const existing = JSON.parse(
-      localStorage.getItem("calmSpaceSuggestions") || "[]"
-    );
-    localStorage.setItem(
-      "calmSpaceSuggestions",
-      JSON.stringify([...existing, newSuggestion])
-    );
+    try {
+      const result = await submitCalmPlaceSuggestion({
+        name,
+        category,
+        address: place?.name ?? "map pin",
+        latitude: coords[0],
+        longitude: coords[1],
+      });
 
-    setSuccessMsg(
-      "Saved for review. Nothing is published until the team approves it."
-    );
-    setName("");
-    setCategory("");
-    setPlace(null);
-    setPin(null);
+      setSuccessMsg(result.message);
+      setName("");
+      setCategory("");
+      setPlace(null);
+      setPin(null);
+    } catch (error) {
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : "The suggestion could not be submitted."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -68,6 +70,14 @@ export default function Page() {
             className="mt-4 rounded-xl border border-euca/30 bg-eucasoft px-4 py-3 text-sm text-euca"
           >
             {successMsg}
+          </p>
+        )}
+        {errorMsg && (
+          <p
+            role="alert"
+            className="mt-4 rounded-xl border border-clay/30 bg-claysoft px-4 py-3 text-sm text-clay"
+          >
+            {errorMsg}
           </p>
         )}
 
@@ -141,10 +151,10 @@ export default function Page() {
 
           <button
             type="submit"
-            disabled={!coords || !name || !category}
+            disabled={submitting || !coords || !name || !category}
             className="el-1 w-full rounded-xl bg-euca px-4 py-2.5 font-semibold text-card transition-all hover:brightness-110 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ink"
           >
-            Submit for review
+            {submitting ? "Submitting…" : "Submit for review"}
           </button>
         </form>
       </main>

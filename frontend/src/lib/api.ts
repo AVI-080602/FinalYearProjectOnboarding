@@ -37,6 +37,21 @@ export type ApiStatus = {
 
 export type Weights = { crowd: number; noise: number; light: number };
 
+export type CalmPlaceSuggestionInput = {
+  name: string;
+  category: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  note?: string;
+};
+
+export type CalmPlaceSuggestionResponse = {
+  suggestion_id: number;
+  status: "pending";
+  message: string;
+};
+
 export async function fetchRoutes(
   origin: [number, number],
   destination: [number, number],
@@ -58,5 +73,20 @@ export async function fetchRoutes(
 export async function fetchStatus(): Promise<ApiStatus> {
   const res = await fetch(`${BASE}/api/status`);
   if (!res.ok) throw new Error("status unavailable");
+  return res.json();
+}
+
+export async function submitCalmPlaceSuggestion(
+  suggestion: CalmPlaceSuggestionInput
+): Promise<CalmPlaceSuggestionResponse> {
+  const res = await fetch(`${BASE}/api/suggestions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(suggestion),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `suggestion service error (${res.status})`);
+  }
   return res.json();
 }
