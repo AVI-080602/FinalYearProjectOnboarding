@@ -14,22 +14,9 @@ type QuietSpace = {
 };
 
 export default function Page() {
-    const categoryOptions = [
-        "All",
-        "Art Gallery/Museum",
-        "Church",
-        "Drinking Fountain",
-        "Informal Outdoor Facility (Park/Garden/Reserve)",
-        "Library",
-        "Picnic Setting",
-        "Public Toilet",
-        "Seat",
-        "Synagogue",
-    ];
 
     const [selectedCategory, setSelectedCategory] = useState<string[]>([]);
     const [quietSpaces, setQuietSpaces] = useState<QuietSpace[]>([]);
-    const visibleQuietSpaces = quietSpaces.slice(0, 20);
 
     useEffect(() => {
     async function loadQuietSpaces() {
