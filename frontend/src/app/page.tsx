@@ -9,6 +9,7 @@ import AppHeader from "@/components/app-header";
 import SearchBox, { type Place } from "@/components/search-box";
 import RouteCard from "@/components/route-card";
 import RouteDetail from "@/components/route-detail";
+import ThresholdAlert from "@/components/threshold-alert";
 
 const RouteMap = dynamic(() => import("@/components/route-map"), {
   ssr: false,
@@ -21,6 +22,9 @@ export default function Planner() {
   const [openLabel, setOpenLabel] = useState<Route["label"] | null>(null);
   const [hoverLabel, setHoverLabel] = useState<Route["label"] | null>(null);
   const [aka, setAka] = useState<Record<string, string>>({});
+  const [alertDismissed, setAlertDismissed] = useState(false);
+  const [threshold, setThreshold] = useState(60);
+  const [alertsOn, setAlertsOn] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string>("checking data…");
@@ -37,8 +41,11 @@ export default function Planner() {
     setLoading(true);
     setError(null);
     setOpenLabel(null);
+    setAlertDismissed(false);
     try {
-      const { weights, threshold } = loadSettings();
+      const { weights, threshold, alertsEnabled } = loadSettings();
+      setThreshold(threshold);
+      setAlertsOn(alertsEnabled);
       const res = await fetchRoutes(
         origin.coords,
         destination.coords,
@@ -82,6 +89,11 @@ export default function Planner() {
   }
 
   const current = routes.find((r) => r.label === openLabel) ?? null;
+  const calmest =
+    routes.find((r) => r.label === "Lowest Sensory Load") ?? null;
+  const highRoutes = routes.filter((r) => r.band === "High");
+  const showAlert =
+    alertsOn && !alertDismissed && highRoutes.length > 0 && !current;
   const calmestSli =
     routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
 
@@ -148,6 +160,20 @@ export default function Planner() {
             >
               {error}
             </div>
+          )}
+
+          {/* US 1.3: threshold alert with continue-without option */}
+          {showAlert && (
+            <ThresholdAlert
+              highRoutes={highRoutes}
+              threshold={threshold}
+              calmest={calmest}
+              onUseCalmest={() => {
+                setAlertDismissed(true);
+                setOpenLabel("Lowest Sensory Load");
+              }}
+              onDismiss={() => setAlertDismissed(true)}
+            />
           )}
 
           {/* AC 1.1.2/1.1.3: summaries with comfort labels */}
