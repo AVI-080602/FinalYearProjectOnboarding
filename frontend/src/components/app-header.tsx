@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Plan a route" },
   { href: "/quiet-spaces", label: "Quiet spaces" },
   { href: "/add-a-calm-space", label: "Suggest a place" },
+  { href: "/settings", label: "My sensitivities" },
 ];
 
 export default function AppHeader({
