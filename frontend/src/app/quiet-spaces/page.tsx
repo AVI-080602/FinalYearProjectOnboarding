@@ -1,17 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import CategoryChip from "@/components/category-chip";
+import { categoryOptions } from "@/lib/quiet-space-category";
+import type { QuietSpace } from "@/types/quiet-space";
 
-type QuietSpace = {
-    id: number;
-    name: string;
-    category: string;
-    latitude: number;
-    longitude: number;
-    wheelchair: string | null;
-    sourceDataset: string;
-};
+const QuietSpaceMap = dynamic(() => import("@/components/quiet-space-map"), {
+    ssr: false,
+});
 
 export default function Page() {
 
@@ -57,22 +54,21 @@ export default function Page() {
 
     return (
         <div>
-            <h1>Quite Spaces</h1>
+            <h1>Quiet Spaces</h1>
             <div>
-                <CategoryChip category="Art Gallery/Museum" isSelected={selectedCategory.includes("Art Gallery/Museum")} onClick={() => toggleCategory("Art Gallery/Museum")} />
-                <CategoryChip category="Church" isSelected={selectedCategory.includes("Church")} onClick={() => toggleCategory("Church")} />
-                <CategoryChip category="Drinking Fountain" isSelected={selectedCategory.includes("Drinking Fountain")} onClick={() => toggleCategory("Drinking Fountain")} />
-                <CategoryChip category="Informal Outdoor Facility (Park/Garden/Reserve)" isSelected={selectedCategory.includes("Informal Outdoor Facility (Park/Garden/Reserve)")} onClick={() => toggleCategory("Informal Outdoor Facility (Park/Garden/Reserve)")} />
-                <CategoryChip category="Library" isSelected={selectedCategory.includes("Library")} onClick={() => toggleCategory("Library")} />
-                <CategoryChip category="Picnic Setting" isSelected={selectedCategory.includes("Picnic Setting")} onClick={() => toggleCategory("Picnic Setting")} />
-                <CategoryChip category="Public Toilet" isSelected={selectedCategory.includes("Public Toilet")} onClick={() => toggleCategory("Public Toilet")} />
-                <CategoryChip category="Seat" isSelected={selectedCategory.includes("Seat")} onClick={() => toggleCategory("Seat")} />
-                <CategoryChip category="Synagogue" isSelected={selectedCategory.includes("Synagogue")} onClick={() => toggleCategory("Synagogue")} />
+                {categoryOptions.map((category) => (
+                    <CategoryChip
+                        key={category}
+                        category={category}
+                        isSelected={selectedCategory.includes(category)}
+                        onClick={() => toggleCategory(category)}
+                    />
+                ))}
             </div>
-            <div>
-            </div>
+            <p>Showing {filteredQuietSpaces.length} calm places</p>
+            <QuietSpaceMap spaces={filteredQuietSpaces} />
             <ul>
-                {filteredQuietSpaces.map((space) => (
+                {filteredQuietSpaces.slice(0, 50).map((space) => (
                     <li key={space.id}>{space.name}</li>
                 ))}
             </ul>
@@ -80,4 +76,3 @@ export default function Page() {
 
     );
 }
-
