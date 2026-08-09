@@ -153,6 +153,11 @@ class SensoryEngine:
             ("crowds", crowd), ("noise (venues)", noise),
             ("bright lighting", light), ("construction", constr),
         ], key=lambda t: -t[1])
+        coverage = round(100 * (1 - unknown_len / max(length, 1)))
+        live_fresh = self.data_status.startswith("live")
+        confidence = ("high" if coverage >= 70 and live_fresh
+                      else "low" if coverage < 30 or not live_fresh else "medium")
+        L = max(length, 1)
         return {
             "label": label,
             "nodes": nodes,
@@ -162,8 +167,15 @@ class SensoryEngine:
             "sli": sli100,
             "band": "High" if sli100 >= threshold else "Low",
             "top_driver": drivers[0][0],
+            "breakdown": {
+                "crowd": round(100 * crowd / L, 1),
+                "noise": round(100 * noise / L, 1),
+                "light": round(100 * light / L, 1),
+                "construction": round(100 * constr / L, 1),
+            },
             "constr_edges": int(n_constr_edges),
-            "coverage_pct": round(100 * (1 - unknown_len / max(length, 1))),
+            "coverage_pct": coverage,
+            "confidence": confidence,
         }
 
     # ---------- forecast (AC 2.2) ----------

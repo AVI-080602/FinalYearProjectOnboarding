@@ -21,6 +21,20 @@ def main() -> None:
     )
     out = out.dropna(subset=["location_id", "sensing_datetime"])
     out = out.drop_duplicates(["location_id", "sensing_datetime"])
+
+    # only ship rows the DB does not already have (30 min overlap for safety);
+    # keeps hosted-DB upserts small instead of re-sending the whole window
+    from sqlalchemy import func, select
+    from ..db import engine, session
+    with session() as s:
+        db_max = s.execute(select(func.max(PedestrianMinuteCount.sensing_datetime))).scalar()
+    if db_max is not None:
+        cutoff = pd.Timestamp(db_max) - pd.Timedelta(minutes=30)
+        out = out[out["sensing_datetime"] > cutoff]
+
+    if out.empty:
+        print("pedestrian_minute_count: already up to date")
+        return
     out = out.astype(object).where(pd.notnull(out), None)
     n = upsert_dataframe(out, PedestrianMinuteCount, ["location_id", "sensing_datetime"])
     latest = max(r["sensing_datetime"] for r in out.to_dict("records"))

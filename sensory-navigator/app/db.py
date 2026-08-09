@@ -8,6 +8,7 @@ The schema is identical on both.
 import os
 from datetime import date, datetime
 
+from dotenv import load_dotenv
 from sqlalchemy import (
     Date, DateTime, Float, ForeignKey, Integer, String, create_engine, delete,
 )
@@ -15,11 +16,20 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from .config import PROJECT_ROOT
 
+load_dotenv(PROJECT_ROOT / ".env")
+
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", f"sqlite:///{PROJECT_ROOT / 'sensory.db'}"
 )
 
-engine = create_engine(DATABASE_URL, future=True)
+_pg_args = (
+    {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10,
+     "keepalives_count": 5}
+    if DATABASE_URL.startswith("postgresql") else {}
+)
+engine = create_engine(
+    DATABASE_URL, future=True, pool_pre_ping=True, connect_args=_pg_args
+)
 
 
 class Base(DeclarativeBase):
@@ -119,15 +129,24 @@ class SensorySource(Base):
     weight: Mapped[float] = mapped_column(Float)   # kind-specific intensity
 
 
-class UserProfile(Base):
-    """Freddy's sensory settings (AC 1.3.1). Session-scoped, no PII."""
-    __tablename__ = "user_profile"
-    profile_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(60), default="default")
-    w_crowd: Mapped[float] = mapped_column(Float, default=0.5)
-    w_noise: Mapped[float] = mapped_column(Float, default=0.3)
-    w_light: Mapped[float] = mapped_column(Float, default=0.2)
-    threshold: Mapped[int] = mapped_column(Integer, default=60)
+# Note: there is deliberately no user/profile table. Sensory settings
+# (weights + threshold, AC 1.3.1) live in the user's browser (localStorage)
+# and are sent with each request. The database holds no user data at all.
+
+
+class CalmPlaceSuggestion(Base):
+    """Community-suggested calm places (AC 2.1.5). Anonymous by design:
+    no submitter identity is stored. Nothing publishes without review."""
+    __tablename__ = "calm_place_suggestion"
+    suggestion_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    category: Mapped[str] = mapped_column(String(80))
+    address: Mapped[str | None] = mapped_column(String(200))
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+    note: Mapped[str | None] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|approved|rejected
+    created_at: Mapped[datetime] = mapped_column(DateTime)
 
 
 # ---------- helpers ----------
@@ -136,16 +155,19 @@ def init_db() -> None:
     Base.metadata.create_all(engine)
 
 
-def upsert_dataframe(df, model, pk_cols: list[str], chunk: int = 2000) -> int:
-    """Dialect-aware bulk INSERT ... ON CONFLICT DO NOTHING. Returns rows attempted."""
+def upsert_dataframe(df, model, pk_cols: list[str], chunk: int = 500) -> int:
+    """Dialect-aware bulk INSERT ... ON CONFLICT DO NOTHING. Returns rows attempted.
+
+    One transaction per chunk: long single transactions over pooled cloud
+    connections (Neon) get dropped mid-flight; per-chunk commits are resumable."""
     if engine.dialect.name == "postgresql":
         from sqlalchemy.dialects.postgresql import insert
     else:
         from sqlalchemy.dialects.sqlite import insert
     table = model.__table__
     rows = df.to_dict("records")
-    with engine.begin() as conn:
-        for i in range(0, len(rows), chunk):
+    for i in range(0, len(rows), chunk):
+        with engine.begin() as conn:
             stmt = insert(table).values(rows[i : i + chunk])
             stmt = stmt.on_conflict_do_nothing(index_elements=pk_cols)
             conn.execute(stmt)

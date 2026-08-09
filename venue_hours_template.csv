@@ -1,0 +1,48 @@
+﻿refuge_id,name,category,mon_open,mon_close,tue_open,tue_close,wed_open,wed_close,thu_open,thu_close,fri_open,fri_close,sat_open,sat_close,sun_open,sun_close,source_url,verified_date
+47,Australian Centre For The Moving Image (ACMI),Art Gallery/Museum,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,https://www.acmi.net.au/plan-your-visit/,2026-08-09
+1,Australian Centre for Contemporary Art,Art Gallery/Museum,,,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,11:00,17:00,11:00,17:00,OpenStreetMap (unverified),
+16,Cooks' Cottage,Art Gallery/Museum,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,OpenStreetMap (unverified),
+29,Fire Services Museum Victoria,Art Gallery/Museum,,,,,,,09:00,15:00,09:00,15:00,,,10:00,16:00,OpenStreetMap (unverified),
+8,Fox Classic Car Collection,Art Gallery/Museum,,,,,,,10:00,14:00,10:00,14:00,10:00,14:00,,,OpenStreetMap (unverified),
+28,Immigration Museum,Art Gallery/Museum,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,OpenStreetMap (unverified),
+15,Koorie Heritage Trust Inc,Art Gallery/Museum,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,https://kht.org.au/visit-us/,2026-08-09
+25,Melbourne Museum,Art Gallery/Museum,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,OpenStreetMap (unverified),
+2,National Sports Museum,Art Gallery/Museum,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,OpenStreetMap (unverified),
+20,Old Melbourne Gaol Crime & Justice Experience,Art Gallery/Museum,09:30,17:00,09:30,17:00,09:30,17:00,09:30,17:00,09:30,17:00,09:30,17:00,09:30,17:00,OpenStreetMap (unverified),
+43,Polly Woodside,Art Gallery/Museum,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,OpenStreetMap (unverified),
+17,Royal Exhibition Building,Art Gallery/Museum,,,,,,,,,,,,,,,,
+37,Sinclair's Cottage,Art Gallery/Museum,,,,,,,,,,,,,,,,
+44,The Ian Potter Centre: NGV Australia,Art Gallery/Museum,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,OpenStreetMap (unverified),
+14,The Ian Potter Museum Of Art,Art Gallery/Museum,,,11:00,17:00,11:00,17:00,11:00,17:00,11:00,17:00,11:00,17:00,,,https://potter-museum.unimelb.edu.au/visit/plan-your-visit,2026-08-09
+26,The Museum Of Australian Chinese History,Art Gallery/Museum,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,10:00,16:00,https://www.chinesemuseum.com.au/location-hours,2026-08-09
+33,Thoroughbred Racing Gallery,Art Gallery/Museum,,,,,,,,,,,,,,,,
+45,Victoria Police Museum,Art Gallery/Museum,,,10:00,14:00,10:00,14:00,10:00,14:00,,,,,,,https://www.policemuseum.vic.gov.au/plan-your-visit,2026-08-09
+13,Victorian Arts Centre,Art Gallery/Museum,07:00,18:00,07:00,18:00,07:00,18:00,07:00,22:00,07:00,22:00,08:30,22:00,10:00,17:00,https://www.artscentremelbourne.com.au/visit,2026-08-09
+27,All Nations Uniting Church,Church,,,10:00,14:00,10:00,14:00,10:00,14:00,,,,,,,OpenStreetMap (unverified),
+18,Church of Christ,Church,,,,,,,,,,,,,,,,
+35,Collins Street Baptist Church,Church,,,,,,,,,,,,,,,,
+40,Greek Orthodox Church,Church,,,,,,,,,,,,,,,,
+19,Holy Trinity,Church,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,https://holytrinitymelbourne.org.au/,2026-08-09
+31,Lutheran Trinity Church,Church,,,,,,,,,,,,,,,,
+10,Melbourne Unitarian Church,Church,,,,,,,,,,,,,,,,
+41,North Melbourne Uniting,Church,,,,,,,,,,,,,,,,
+11,Our Lady of Lebanon Church,Church,,,,,,,,,,,,,,,,
+5,Romanian Orthodox,Church,,,,,,,,,,,,,,,,
+34,Scots Church,Church,10:00,14:00,10:00,14:00,10:00,14:00,10:00,14:00,10:00,14:00,,,,,https://scotschurch.com/contact/,2026-08-09
+12,St Alban Anglican Church,Church,,,,,,,,,,,,,,,,
+9,St Augustines Church,Church,,,,,,,,,,,,,,,,
+39,St Francis Church,Church,07:15,18:30,07:15,18:30,07:15,18:30,07:15,18:30,07:15,18:30,07:45,19:00,07:45,19:00,https://www.blessedsacrament.au/sfchurch/,2026-08-09
+21,St James Church,Church,,,,,,,,,,,,,,,,
+32,St Johns Lutheran Church,Church,09:00,16:00,09:00,16:00,09:00,16:00,09:00,16:00,09:00,16:00,,,,,https://www.stjohnssouthgate.com.au/index.php/about-st-johns/facilities-hire/,2026-08-09
+3,St Mary's Anglican Church,Church,,,,,,,,,,,,,,,,
+22,St Michael's Uniting Church,Church,,,,,,,,,,,,,,,,
+6,St Michaels,Church,,,,,,,,,,,,,,,,
+24,St Patricks Cathedral,Church,06:30,17:30,06:30,17:30,06:30,17:30,06:30,17:30,06:30,17:30,07:30,19:30,07:30,19:30,https://melbournecatholic.org/st-patricks-cathedral,2026-08-09
+46,St Pauls Cathedral,Church,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,10:00,17:00,,,https://cathedral.org.au/explore/visitor-information/,2026-08-09
+38,St Peter's Eastern Hill,Church,08:00,13:00,08:00,13:00,08:00,13:00,08:00,13:00,08:00,13:00,,,,,OpenStreetMap (unverified),
+36,St Thomas Aquinas Church,Church,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,09:00,17:00,,,08:30,10:00,https://parishofsouthyarra.org.au/location-opening-hours/,2026-08-09
+7,Ukranian Catholic Cathedral,Church,08:00,17:00,08:00,17:00,08:00,17:00,08:00,17:00,08:00,17:00,08:00,17:00,08:00,17:00,OpenStreetMap (unverified),
+30,Welsh Presbyterian Church,Church,,,,,,,,,,,,,,,,
+42,Wesley Church,Church,,,,,,,,,,,,,,,,
+4,The Melbourne Athenaeum Library,Library,10:00,18:00,10:00,18:00,10:00,20:00,10:00,18:00,10:00,16:00,10:00,14:00,,,https://melbourneathenaeum.org.au/library/,2026-08-09
+23,East Melbourne Synagogue,Synagogue,,,,,,,,,,,,,,,,

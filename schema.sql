@@ -1,3 +1,16 @@
+CREATE TABLE calm_place_suggestion (
+	suggestion_id SERIAL NOT NULL, 
+	name VARCHAR(120) NOT NULL, 
+	category VARCHAR(80) NOT NULL, 
+	address VARCHAR(200), 
+	latitude FLOAT, 
+	longitude FLOAT, 
+	note VARCHAR(300), 
+	status VARCHAR(20) NOT NULL, 
+	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	PRIMARY KEY (suggestion_id)
+);
+
 CREATE TABLE refuge (
 	refuge_id SERIAL NOT NULL, 
 	tier INTEGER NOT NULL, 
@@ -32,16 +45,6 @@ CREATE TABLE sensory_source (
 	longitude FLOAT NOT NULL, 
 	weight FLOAT NOT NULL, 
 	PRIMARY KEY (source_id)
-);
-
-CREATE TABLE user_profile (
-	profile_id SERIAL NOT NULL, 
-	name VARCHAR(60) NOT NULL, 
-	w_crowd FLOAT NOT NULL, 
-	w_noise FLOAT NOT NULL, 
-	w_light FLOAT NOT NULL, 
-	threshold INTEGER NOT NULL, 
-	PRIMARY KEY (profile_id)
 );
 
 CREATE TABLE hourly_profile (

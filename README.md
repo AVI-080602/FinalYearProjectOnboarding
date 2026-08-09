@@ -29,13 +29,13 @@ drive, not in the repo.
 
 - Engine and data pipeline: Python (pandas, SQLAlchemy, OSMnx, NetworkX, scipy)
 - Database: SQLite for local dev; PostgreSQL-compatible schema (set DATABASE_URL to switch)
-- API (planned): FastAPI wrapper around the engine
-- Frontend (planned): Next.js + TypeScript + react-leaflet
+- API: FastAPI wrapper around the engine (sensory-navigator/app/api)
+- Frontend: Next.js 16 + TypeScript + Tailwind + react-leaflet
 - Data: City of Melbourne Open Data (CC BY 4.0) + OpenStreetMap (ODbL)
 
 ## Getting started
 
-Prerequisites: Python 3.12+ (3.14 tested), Node 22+ (for the frontend, later).
+Prerequisites: Python 3.12+ (3.14 tested), Node 22+ (for the frontend).
 
 ```bash
 git clone https://github.com/AVI-080602/FinalYearProjectOnboarding.git
@@ -43,14 +43,29 @@ cd FinalYearProjectOnboarding/sensory-navigator
 pip install -r requirements.txt
 ```
 
-Build the local database and graph (about 5 to 10 minutes, downloads open data):
+### Database: hosted (default for the team)
+
+The team database is hosted PostgreSQL (Neon, Sydney). Get the `.env` file from
+the team chat, place it at `sensory-navigator/.env`, and you are connected: no
+data pipeline to run. You only need the local graph build (one-off, ~2 min):
 
 ```bash
-python -m app.ingest.fetch_static      # sensors, refuges, sensory sources
-python -m app.ingest.fetch_live       # live pedestrian counts (run any time for fresh data)
-python -m app.ingest.build_profiles   # hourly forecast profiles (120-day window)
 python -m app.graph.build_graph       # OSM walk graph + sensory layer join
 ```
+
+One machine runs the data pipeline against the hosted DB (the data engineer).
+Do not run ingest scripts against the shared database unless you are that person:
+
+```bash
+python -m app.ingest.fetch_live       # live pedestrian counts (only new rows are sent)
+python -m app.ingest.build_profiles   # daily: refresh forecast profiles
+python -m app.ingest.fetch_static     # per iteration: refuges + sensory sources
+```
+
+### Database: fully local (fallback)
+
+Without a `.env` the app uses local SQLite. Run all four commands above
+(static, live, profiles, then graph) to build your own copy from open data.
 
 Smoke test (routes Southern Cross to Parliament three ways):
 
@@ -67,13 +82,25 @@ for r in e.route((-37.8183, 144.9526), (-37.8110, 144.9730), C.DEFAULT_WEIGHTS, 
 The database (`sensory.db`) and graph artifacts (`data/`) are not committed:
 they are large and fully regenerable with the commands above.
 
+### Backend API
+
+```bash
+cd sensory-navigator
+python -m uvicorn app.api.server:app --port 8000 --reload
+```
+
+Endpoints: `GET /api/status`, `POST /api/routes`, `GET /api/refuges`,
+`GET /api/forecast/{sensor}`, `GET /api/sensors`,
+`POST /api/suggestions` + `GET /api/suggestions?status=pending` (review queue).
+Interactive docs at http://localhost:8000/docs. No auth by design.
+
 ### Frontend
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env.local
-npm run dev          # http://localhost:3000
+npm run dev          # http://localhost:3000 (expects the API on :8000)
 ```
 
 Quality tooling: `npm run lint` (ESLint), `npm run format` (Prettier),
