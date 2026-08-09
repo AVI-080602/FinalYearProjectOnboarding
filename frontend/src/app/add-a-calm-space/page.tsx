@@ -1,140 +1,153 @@
-'use client';
+"use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { categoryOptions } from "@/lib/quiet-space-category";
-import Link from "next/link";
+import AppHeader from "@/components/app-header";
+import SearchBox, { type Place } from "@/components/search-box";
+
+const PickMap = dynamic(() => import("@/components/pick-map"), { ssr: false });
 
 export default function Page() {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [place, setPlace] = useState<Place | null>(null);
+  const [pin, setPin] = useState<[number, number] | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
 
-    const [formData, setFormData] = useState({
-        name: "",
-        category: "",
-        address: "",
-        latitude: "",
-        longitude: "",
-    });
+  // the location a submission actually uses: map pin wins, then searched place
+  const coords = pin ?? place?.coords ?? null;
 
-    const [successMsg, setSuccessMsg] = useState("");
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!coords) return;
 
-    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault();
+    const newSuggestion = {
+      id: crypto.randomUUID(),
+      name,
+      category,
+      address: place?.name ?? "map pin",
+      latitude: coords[0],
+      longitude: coords[1],
+      status: "pending",
+      date: new Date().toISOString(),
+    };
 
-        const newSuggestion = {
-            id: crypto.randomUUID(),
-            name: formData.name,
-            category: formData.category,
-            address: formData.address,
-            latitude: formData.latitude,
-            longitude: formData.longitude,
-            status: "pending",
-            date: new Date().toISOString(),
-        }
+    // TODO: Replace localStorage with POST /api/suggestions so submitted
+    // places leave the device and reach the team review queue.
+    const existing = JSON.parse(
+      localStorage.getItem("calmSpaceSuggestions") || "[]"
+    );
+    localStorage.setItem(
+      "calmSpaceSuggestions",
+      JSON.stringify([...existing, newSuggestion])
+    );
 
-        // TODO: Replace localStorage with a backend API so submitted places leave
-        // this device and can be reviewed by the team before appearing on the map.
-        const existingSuggestions = JSON.parse(localStorage.getItem("calmSpaceSuggestions") || "[]");
-        localStorage.setItem(
-        "calmSpaceSuggestions",
-        JSON.stringify([...existingSuggestions, newSuggestion])
-        );
-        
-        setSuccessMsg("Calm space added successfully!");
+    setSuccessMsg(
+      "Saved for review. Nothing is published until the team approves it."
+    );
+    setName("");
+    setCategory("");
+    setPlace(null);
+    setPin(null);
+  }
 
-        setFormData({
-            name: "",
-            category: "",
-            address: "",
-            latitude: "",
-            longitude: "",
-        });
-    }
+  return (
+    <div className="flex min-h-screen flex-col">
+      <AppHeader />
+      <main className="mx-auto w-full max-w-xl flex-1 px-5 py-6">
+        <h1 className="font-display text-2xl text-ink">Suggest a calm place</h1>
+        <p className="mt-1 text-sm text-inksoft">
+          Know somewhere quiet the map is missing? Add it here. A team member
+          reviews every suggestion before it appears.
+        </p>
 
-    return (
-        <>
-            <div className="flex flex-col pt-4 px-4">
-                <Link
-                href="/quiet-spaces"
-                className="absolute top-4 left-4 text-blue-500 hover:text-blue-700"
-                >
-                &lt; Back to Quiet Spaces
-                </Link>
-                {successMsg && <p className="mt-8 text-center rounded-md bg-green-50 px-4 py-3 text-green-700">{successMsg}</p>}
+        {successMsg && (
+          <p
+            role="status"
+            className="mt-4 rounded-xl border border-euca/30 bg-eucasoft px-4 py-3 text-sm text-euca"
+          >
+            {successMsg}
+          </p>
+        )}
+
+        <form
+          onSubmit={handleSubmit}
+          className="el-1 mt-4 space-y-4 rounded-2xl border border-line bg-card p-5"
+        >
+          <div>
+            <label
+              htmlFor="name"
+              className="text-xs font-semibold uppercase tracking-wide text-inksoft"
+            >
+              Name
+            </label>
+            <input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Courtyard behind the library"
+              required
+              className="input-calm mt-1 w-full rounded-xl border border-line px-3.5 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-euca"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="category"
+              className="text-xs font-semibold uppercase tracking-wide text-inksoft"
+            >
+              Category
+            </label>
+            <select
+              id="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+              className="select-calm mt-1 w-full rounded-xl border border-line px-3.5 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-euca"
+            >
+              <option value="">Select a category</option>
+              {categoryOptions.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Location: search it, use GPS, or tap the map. Never type numbers. */}
+          <div>
+            <SearchBox
+              label="Where is it?"
+              value={place}
+              onChange={(p) => {
+                setPlace(p);
+                setPin(null);
+              }}
+              allowMyLocation
+            />
+            <p className="mt-2 text-xs text-inksoft">
+              Or tap the map to drop the pin exactly where it is.
+            </p>
+            <div className="mt-2 h-56 overflow-hidden rounded-xl border border-line">
+              <PickMap value={coords} onPick={(ll) => setPin(ll)} />
             </div>
-            <div className="flex flex-col items-center justify-center min-h-screen py-2">
-                <form className="w-full max-w-md p-8 space-y-6 bg-white rounded shadow-md" onSubmit={handleSubmit}>
-                    <h2 className="text-2xl font-bold text-center">Add a Calm Space</h2>
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>           
-                        <input
-                            type="text"
-                            id="name"
-                            name="name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300" required>
-                        </input>
-                        <label htmlFor="category" className="block text-sm font-medium text-gray-700 mt-4">Category</label>
-                        <select
-                            id="category"
-                            name="category"
-                            value={formData.category}
-                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                            className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300" required>
-                            <option value="">Select a category</option>
-                            {categoryOptions.map((option) => (
-                                <option key={option} value={option}>
-                                    {option}
-                                </option>
-                            ))}
-                        </select>
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mt-4">Address</label>
-                        <input className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300" 
-                            id="address"
-                            name="address"
-                            type="text" placeholder="Address"
-                            value={formData.address}
-                            onChange={(e) => setFormData({...formData, address: e.target.value})} required>
-                        </input>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mt-4">Latitude</label>
-                                <input
-                                    id="latitude"
-                                    name="latitude"
-                                    type="number"
-                                    step="any"
-                                    placeholder="-37.8136"
-                                    value={formData.latitude}
-                                    onChange={(e) => setFormData({...formData, latitude: e.target.value})}
-                                    className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mt-4">Longitude</label>
-                                <input
-                                    id="longitude"
-                                    name="longitude"
-                                    type="number"
-                                    step="any"
-                                    placeholder="144.9631"
-                                    value={formData.longitude}
-                                    onChange={(e) => setFormData({...formData, longitude: e.target.value})}
-                                    className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end">
-                            <button
-                                type="submit"
-                                className="w-1/3 px-3 py-2 mt-4 text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-300">
-                                Submit
-                            </button>
-                        </div>
-                    </div>
-                    </form>
-            </div>
-        </>
-    )
+            <p aria-live="polite" className="mt-1.5 text-xs text-inksoft">
+              {coords
+                ? `Location set ${pin ? "from the map pin" : `to ${place?.name}`}`
+                : "No location set yet"}
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!coords || !name || !category}
+            className="el-1 w-full rounded-xl bg-euca px-4 py-2.5 font-semibold text-card transition-all hover:brightness-110 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ink"
+          >
+            Submit for review
+          </button>
+        </form>
+      </main>
+    </div>
+  );
 }

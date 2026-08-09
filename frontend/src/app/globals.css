@@ -1,1 +1,108 @@
 @import "tailwindcss";
+
+/* ---- Sensory Navigator: crisp modern system ----
+   White surfaces, cool neutrals, one confident green, layered shadows.
+   Still calm: nothing flashes, nothing screams, motion stays gentle. */
+:root {
+  --paper: #f6f7f9; /* app background: cool near-white */
+  --card: #ffffff;
+  --mist: #eef1f4; /* wells, hovers */
+  --ink: #10202b; /* near-black text with a cool cast */
+  --ink-soft: #51606c;
+  --line: #e3e8ed;
+
+  --euca: #0d8267; /* the brand green, crisped */
+  --euca-soft: #e0f2ec;
+  --slate: #47698a; /* balanced route */
+  --clay: #c05621; /* warm alert: High load, Fastest route. Never red. */
+  --clay-soft: #fcebdd;
+
+  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgb(16 32 43 / 0.06), 0 1px 3px rgb(16 32 43 / 0.08);
+  --shadow-md: 0 4px 6px rgb(16 32 43 / 0.05), 0 10px 24px rgb(16 32 43 / 0.09);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-mist: var(--mist);
+  --color-ink: var(--ink);
+  --color-inksoft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-euca: var(--euca);
+  --color-eucasoft: var(--euca-soft);
+  --color-slate: var(--slate);
+  --color-clay: var(--clay);
+  --color-claysoft: var(--clay-soft);
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "tnum";
+}
+
+/* display role: same crisp family, heavier and tighter */
+.font-display {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* elevation utilities */
+.el-1 {
+  box-shadow: var(--shadow-sm);
+}
+.el-2 {
+  box-shadow: var(--shadow-md);
+}
+
+/* gentle entrance for route results; disabled for reduced motion */
+.rise-in {
+  animation: rise 380ms cubic-bezier(0.22, 0.8, 0.36, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* calm form controls: no system chrome */
+.select-calm,
+.input-calm {
+  appearance: none;
+  background-color: var(--card);
+}
+.select-calm {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2310202b' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.4rem;
+}
+
+/* leaflet chrome matched to the system */
+.leaflet-container {
+  font-family: inherit;
+  border-radius: var(--radius);
+}
+.leaflet-bar a {
+  background: var(--card) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}

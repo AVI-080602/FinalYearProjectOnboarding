@@ -1,70 +1,211 @@
-import Image from "next/image";
+"use client";
 
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { fetchRoutes, fetchStatus, type Route } from "@/lib/api";
+import { loadSettings } from "@/lib/settings";
+import { ROUTE_ORDER } from "@/lib/route-colors";
+import AppHeader from "@/components/app-header";
+import SearchBox, { type Place } from "@/components/search-box";
+import RouteCard from "@/components/route-card";
+import RouteDetail from "@/components/route-detail";
 
-export default function Home() {
+const RouteMap = dynamic(() => import("@/components/route-map"), {
+  ssr: false,
+});
+
+export default function Planner() {
+  const [origin, setOrigin] = useState<Place | null>(null);
+  const [destination, setDestination] = useState<Place | null>(null);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [openLabel, setOpenLabel] = useState<Route["label"] | null>(null);
+  const [hoverLabel, setHoverLabel] = useState<Route["label"] | null>(null);
+  const [aka, setAka] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dataStatus, setDataStatus] = useState<string>("checking data…");
+
+  useEffect(() => {
+    fetchStatus()
+      .then((s) => setDataStatus(s.data_status))
+      .catch(() => setDataStatus("route service offline"));
+  }, []);
+
+  // AC 1.1.1: search routes between an entered start point and destination
+  async function search() {
+    if (!origin || !destination) return;
+    setLoading(true);
+    setError(null);
+    setOpenLabel(null);
+    try {
+      const { weights, threshold } = loadSettings();
+      const res = await fetchRoutes(
+        origin.coords,
+        destination.coords,
+        weights,
+        threshold
+      );
+      const sorted = [...res.routes].sort(
+        (a, b) => ROUTE_ORDER.indexOf(a.label) - ROUTE_ORDER.indexOf(b.label)
+      );
+      // identical geometry under different lambdas = one route, one card
+      const unique: Route[] = [];
+      const dupNotes: Record<string, string[]> = {};
+      for (const r of sorted) {
+        const twin = unique.find(
+          (u) =>
+            u.length_m === r.length_m &&
+            u.minutes === r.minutes &&
+            u.sli === r.sli
+        );
+        if (twin) {
+          (dupNotes[twin.label] ??= []).push(
+            r.label === "Fastest" ? "also the fastest" : "also balanced"
+          );
+        } else {
+          unique.push(r);
+        }
+      }
+      setAka(
+        Object.fromEntries(
+          Object.entries(dupNotes).map(([k, v]) => [k, v.join(", ")])
+        )
+      );
+      setRoutes(unique);
+      setDataStatus(res.data_status);
+    } catch (e) {
+      setRoutes([]);
+      setError(e instanceof Error ? e.message : "something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const current = routes.find((r) => r.label === openLabel) ?? null;
+  const calmestSli =
+    routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
+
+  // honest, human wording: "Updated 12 min ago", never "live" next to a stale age
+  const m = dataStatus.match(/live \((\d+) min old, (\d+) sensors\)/);
+  const ageMin = m ? Number(m[1]) : null;
+  const statusText = m
+    ? `Updated ${m[1]} min ago · ${m[2]} sensors`
+    : dataStatus.replace("stale snapshot (", "Data from ").replace(" old)", " ago");
+  const fresh = ageMin !== null && ageMin <= 30;
+
+  const statusChip = (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
+        fresh
+          ? "border-euca/30 bg-eucasoft text-euca"
+          : "border-line bg-mist text-inksoft"
+      }`}
+      title="Where the crowd data stands right now"
+    >
+      <span aria-hidden>{fresh ? "●" : "○"}</span>
+      {statusText}
+    </span>
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex min-h-screen flex-col">
+      <AppHeader statusChip={statusChip} />
+
+      <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-4 px-5 py-4 lg:flex-row">
+        {/* left rail */}
+        <div className="flex w-full flex-col gap-3 lg:w-[430px] lg:shrink-0">
+          <section
+            aria-label="Plan a route"
+            className="el-1 rounded-2xl border border-line bg-card p-4"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+            <div className="flex flex-col gap-3">
+              <SearchBox
+                label="From"
+                value={origin}
+                onChange={setOrigin}
+                allowMyLocation
+              />
+              <SearchBox
+                label="To"
+                value={destination}
+                onChange={setDestination}
+              />
+            </div>
+
+            <button
+              onClick={search}
+              disabled={loading || !origin || !destination}
+              className="el-1 mt-4 w-full rounded-xl bg-euca px-4 py-2.5 font-semibold text-card transition-all hover:brightness-110 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ink"
+            >
+              {loading ? "Finding calm routes…" : "Find routes"}
+            </button>
+          </section>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-2xl border border-clay/30 bg-claysoft p-4 text-sm text-clay"
+            >
+              {error}
+            </div>
+          )}
+
+          {/* AC 1.1.2/1.1.3: summaries with comfort labels */}
+          {routes.length > 0 && !current && (
+            <div className="flex flex-col gap-3">
+              {routes.map((r, i) => (
+                <RouteCard
+                  key={r.label}
+                  route={r}
+                  open={false}
+                  onOpen={() => setOpenLabel(r.label)}
+                  delayMs={i * 70}
+                  calmestSli={calmestSli}
+                  onHover={setHoverLabel}
+                  akaNote={aka[r.label]}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* AC 1.1.4-1.1.7: detail panel */}
+          {current && (
+            <RouteDetail
+              routes={routes}
+              current={current}
+              onSwitch={(l) => setOpenLabel(l)}
+              onClose={() => setOpenLabel(null)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          )}
+
+          {routes.length === 0 && !error && !loading && (
+            <div className="rounded-2xl border border-dashed border-line p-4 text-sm text-inksoft">
+              <p className="font-semibold text-ink">How it works</p>
+              <p className="mt-1">
+                Search any two places in Melbourne CBD. You get up to three
+                routes: the calmest, a balanced option, and the fastest, each
+                scored for crowds, noise, light and construction.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* map */}
+        <div className="el-1 h-[420px] min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-line lg:h-auto">
+          <RouteMap
+            routes={routes}
+            selected={openLabel ?? hoverLabel}
+            origin={routes.length && origin ? origin.coords : null}
+            destination={routes.length && destination ? destination.coords : null}
+          />
         </div>
       </main>
+
+      <footer className="mx-auto w-full max-w-[1500px] px-5 pb-4 text-xs text-inksoft">
+        Data: City of Melbourne Open Data (CC BY 4.0) · Map: © OpenStreetMap
+        contributors © CARTO · Search: © OpenStreetMap Nominatim · No logins,
+        no tracking: your settings stay in your browser.
+      </footer>
     </div>
   );
 }
