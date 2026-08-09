@@ -10,6 +10,8 @@ export default function Page() {
         name: "",
         category: "",
         address: "",
+        latitude: "",
+        longitude: "",
     });
 
     const [successMsg, setSuccessMsg] = useState("");
@@ -22,10 +24,14 @@ export default function Page() {
             name: formData.name,
             category: formData.category,
             address: formData.address,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
             status: "pending",
             date: new Date().toISOString(),
         }
 
+        // TODO: Replace localStorage with a backend API so submitted places leave
+        // this device and can be reviewed by the team before appearing on the map.
         const existingSuggestions = JSON.parse(localStorage.getItem("calmSpaceSuggestions") || "[]");
         localStorage.setItem(
         "calmSpaceSuggestions",
@@ -38,6 +44,8 @@ export default function Page() {
             name: "",
             category: "",
             address: "",
+            latitude: "",
+            longitude: "",
         });
     }
 
@@ -79,12 +87,44 @@ export default function Page() {
                                 </option>
                             ))}
                         </select>
-                        <label htmlFor="Address" className="block text-sm font-medium text-gray-700 mt-4">Address</label>
+                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mt-4">Address</label>
                         <input className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300" 
+                            id="address"
+                            name="address"
                             type="text" placeholder="Address"
                             value={formData.address}
                             onChange={(e) => setFormData({...formData, address: e.target.value})} required>
                         </input>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mt-4">Latitude</label>
+                                <input
+                                    id="latitude"
+                                    name="latitude"
+                                    type="number"
+                                    step="any"
+                                    placeholder="-37.8136"
+                                    value={formData.latitude}
+                                    onChange={(e) => setFormData({...formData, latitude: e.target.value})}
+                                    className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mt-4">Longitude</label>
+                                <input
+                                    id="longitude"
+                                    name="longitude"
+                                    type="number"
+                                    step="any"
+                                    placeholder="144.9631"
+                                    value={formData.longitude}
+                                    onChange={(e) => setFormData({...formData, longitude: e.target.value})}
+                                    className="w-full px-3 py-2 mt-1 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
+                                    required
+                                />
+                            </div>
+                        </div>
                         <div className="flex justify-end">
                             <button
                                 type="submit"

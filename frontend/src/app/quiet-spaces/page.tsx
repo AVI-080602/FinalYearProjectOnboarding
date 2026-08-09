@@ -52,6 +52,8 @@ export default function Page() {
         return selectedCategory.includes(space.category);
     }), [quietSpaces, selectedCategory]);
 
+    const visibleListSpaces = filteredQuietSpaces.slice(0, 50);
+
     return (
         <div>
             <h1>Quiet Spaces</h1>
@@ -65,10 +67,17 @@ export default function Page() {
                     />
                 ))}
             </div>
-            <p>Showing {filteredQuietSpaces.length} calm places</p>
+            <p>
+                Showing first {visibleListSpaces.length} of {filteredQuietSpaces.length} calm places in the list.
+                The map shows the first {Math.min(filteredQuietSpaces.length, 300)} matching places.
+            </p>
+            {/* quiet-spaces.json is exported from the backend SQLite Refuge table. */}
             <QuietSpaceMap spaces={filteredQuietSpaces} />
+            <p className="text-sm text-zinc-600">
+                Data: City of Melbourne Open Data (CC BY 4.0).
+            </p>
             <ul>
-                {filteredQuietSpaces.slice(0, 50).map((space) => (
+                {visibleListSpaces.map((space) => (
                     <li key={space.id}>{space.name}</li>
                 ))}
             </ul>
