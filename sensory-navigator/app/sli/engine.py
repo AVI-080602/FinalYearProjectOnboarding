@@ -135,8 +135,16 @@ class SensoryEngine:
         G = self.G
         length = sli_wsum = crowd = noise = light = constr = 0.0
         n_constr_edges = unknown_len = 0.0
+        steps: list[dict] = []  # walking directions grouped by street name
         for u, v in zip(nodes[:-1], nodes[1:]):
             d = min(G[u][v].values(), key=lambda e: e[f"cost_{label}"])
+            name = d.get("name") or "walkway"
+            if isinstance(name, list):
+                name = name[0]
+            if steps and steps[-1]["street"] == name:
+                steps[-1]["meters"] += d["length"]
+            else:
+                steps.append({"street": name, "meters": d["length"]})
             length += d["length"]
             sli_wsum += d["sli"] * d["length"]
             crowd += d.get("crowd_val", 0.0) * d["length"]
@@ -176,6 +184,12 @@ class SensoryEngine:
             "constr_edges": int(n_constr_edges),
             "coverage_pct": coverage,
             "confidence": confidence,
+            # short unnamed connectors folded out; metres rounded for display
+            "steps": [
+                {"street": s["street"], "meters": round(s["meters"])}
+                for s in steps
+                if s["meters"] >= 25 or s["street"] != "walkway"
+            ],
         }
 
     # ---------- forecast (AC 2.2) ----------
