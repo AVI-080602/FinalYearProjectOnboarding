@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { categoryOptions } from "@/lib/quiet-space-category";
 import type { QuietSpace } from "@/types/quiet-space";
@@ -103,6 +104,17 @@ export default function Page() {
   const sensorySummary = selectedSpace
     ? getSensorySummary(selectedSpace)
     : null;
+
+  useEffect(() => {
+    if (!selectedSpace) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedId(null);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedSpace]);
 
   function toggleCategory(category: string) {
     setLimit(PAGE);
@@ -318,7 +330,7 @@ export default function Page() {
                     sensorySummary.level === "Low"
                       ? "bg-eucasoft text-euca"
                       : sensorySummary.level === "Medium"
-                        ? "bg-goldsoft text-gold"
+                        ? "bg-claysoft text-clay"
                         : "bg-claysoft text-clay"
                   }`}
                 >
@@ -362,12 +374,12 @@ export default function Page() {
               {selectedSpace.sourceDataset}
             </p>
 
-            <a
+            <Link
               href={`/?toLat=${selectedSpace.latitude}&toLng=${selectedSpace.longitude}&toName=${encodeURIComponent(selectedSpace.name)}`}
               className="mt-4 inline-flex w-full justify-center rounded-xl bg-euca px-4 py-2.5 text-sm font-semibold text-card transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-ink"
             >
               Start walking navigation
-            </a>
+            </Link>
           </section>
         </div>
       )}
