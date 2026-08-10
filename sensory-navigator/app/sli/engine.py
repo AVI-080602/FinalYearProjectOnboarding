@@ -22,8 +22,8 @@ from scipy.spatial import cKDTree
 from sqlalchemy import text
 
 from .. import config as C
+from ..config import DATA_DIR, M_PER_DEG_LAT, M_PER_DEG_LON
 from ..db import engine as db_engine
-from ..graph.build_graph import DATA_DIR, M_PER_DEG_LAT, M_PER_DEG_LON
 
 COMPACT_PATH = DATA_DIR / "graph_compact.npz"
 WALK_M_PER_MIN = 80.0  # ~4.8 km/h

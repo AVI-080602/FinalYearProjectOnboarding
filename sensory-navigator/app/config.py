@@ -1,7 +1,9 @@
 """Central configuration — dataset IDs, CBD bounds, density bands, SLI defaults."""
+import math
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
 
 # --- Data source: City of Melbourne Open Data (Opendatasoft, CC BY 4.0) ---
 ODS_BASE = "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets"
@@ -48,3 +50,8 @@ LIVE_CACHE_SECONDS = 300  # 5 minutes
 
 # Sensory-source influence radii (metres) for static load layers
 SOURCE_RADIUS_M = {"music_venue": 60, "bar": 60, "construction": 120, "light": 40}
+
+# local equirectangular projection (metres per degree) around the CBD centre
+_LAT0 = (BBOX["lat_min"] + BBOX["lat_max"]) / 2
+M_PER_DEG_LAT = 111_132.0
+M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(_LAT0))
