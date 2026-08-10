@@ -46,6 +46,7 @@ ROUTE_LAMBDAS = {"Fastest": 0.0, "Balanced": 1.0, "Lowest Sensory Load": 3.0}
 CONGESTED_CROWD = 0.67
 MIN_CORRIDOR_M = 60       # shorter congested runs are sensor noise, not a corridor
 FORECAST_STEP_MIN = 15    # granularity for timing the walk against the profiles
+CONDITION_HORIZON_MIN = 180  # how far ahead we will claim a condition still holds
 
 # --- IDW interpolation (sensor readings -> graph edges) ---
 IDW_POWER = 2

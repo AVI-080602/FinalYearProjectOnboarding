@@ -12,11 +12,14 @@ export type Corridor = {
   street: string;
   nearby: boolean; // true = a path beside `street`, not the street itself
   meters: number;
+  meters_ahead: number; // distance from the start of the route
   eta_min: number;
   at: string; // clock time you arrive there, "17:42"
   level: number; // 0-1 crowd level
   people_per_min: number;
-  walk_seconds: number;
+  walk_seconds: number; // how long you spend walking through it
+  lasts_min: number | null; // how long the condition lasts; null = beyond horizon
+  until: string | null;
   coords: [number, number][];
 };
 

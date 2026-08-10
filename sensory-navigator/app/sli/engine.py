@@ -203,11 +203,42 @@ class SensoryEngine:
             run = list(range(i, j + 1))
             meters = float(lengths[run].sum())
             if meters >= C.MIN_CORRIDOR_M:
-                out.append(self._describe_corridor(e, run, crowd, eta_min, meters, depart))
+                ahead = float(lengths[:i].sum())
+                out.append(self._describe_corridor(
+                    e, run, crowd, eta_min, meters, ahead, depart, cache, anchors))
             i = j + 1
         return out
 
-    def _describe_corridor(self, e, run, crowd, eta_min, meters, depart) -> dict:
+    def _level_at(self, edge_ids: np.ndarray, when: datetime,
+                  cache: dict, anchors: dict[int, float]) -> float:
+        """Predicted crowd level over a set of edges at a given time."""
+        key = when.strftime("%w%H")
+        if key not in cache:
+            cache[key] = self.crowd_overlay(self.forecast_by_sensor(when, anchors))
+        crowd_all, known_all = cache[key]
+        if not known_all[edge_ids].any():
+            return 0.0
+        return float(crowd_all[edge_ids].max())
+
+    def condition_duration(self, edge_ids: np.ndarray, arrive: datetime,
+                           cache: dict, anchors: dict[int, float]) -> tuple[int | None, str | None]:
+        """AC 1.2.2: how long this stretch is expected to stay congested.
+
+        Distinct from how long it takes to walk through: this is the life of
+        the condition itself, stepped forward against the hourly profiles until
+        it drops back under the congested band. None means it outlasts the
+        horizon, which is honest — hourly profiles cannot see further."""
+        step = C.FORECAST_STEP_MIN
+        elapsed = 0
+        while elapsed <= C.CONDITION_HORIZON_MIN:
+            when = arrive + timedelta(minutes=elapsed)
+            if self._level_at(edge_ids, when, cache, anchors) < C.CONGESTED_CROWD:
+                return elapsed, when.strftime("%H:%M")
+            elapsed += step
+        return None, None
+
+    def _describe_corridor(self, e, run, crowd, eta_min, meters, ahead, depart,
+                           cache, anchors) -> dict:
         """One congested stretch, in the terms the user needs to act on it."""
         peak = float(crowd[run].max())
         # dominant street by length, so a corridor is named for where it is
@@ -225,15 +256,21 @@ class SensoryEngine:
             nearby = street is not None
             street = street or UNNAMED
         start_min = float(eta_min[run[0]] - self.elen[int(e[run[0]])] / 2 / WALK_M_PER_MIN)
+        arrive = depart + timedelta(minutes=start_min)
+        lasts, until = self.condition_duration(e[run], arrive, cache, anchors)
         return {
             "street": street,
             "nearby": nearby,   # true = a path beside `street`, not the street itself
             "meters": round(meters),
+            "meters_ahead": round(ahead),
             "eta_min": round(max(start_min, 0.0)),
-            "at": (depart + timedelta(minutes=start_min)).strftime("%H:%M"),
+            "at": arrive.strftime("%H:%M"),
             "level": round(peak, 3),
             "people_per_min": round(float(crowd_to_cpm(peak))),
             "walk_seconds": round(meters / WALK_M_PER_MIN * 60),
+            # how long the condition itself lasts; None = beyond the horizon
+            "lasts_min": lasts,
+            "until": until,
             "coords": [(float(self.lat[n]), float(self.lon[n])) for n in nodes],
         }
 

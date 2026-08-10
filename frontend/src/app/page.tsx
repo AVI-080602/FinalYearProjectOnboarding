@@ -10,6 +10,7 @@ import SearchBox, { type Place } from "@/components/search-box";
 import RouteCard from "@/components/route-card";
 import RouteDetail from "@/components/route-detail";
 import ThresholdAlert from "@/components/threshold-alert";
+import SensoryWarningBanner from "@/components/sensory-warning-banner";
 
 const RouteMap = dynamic(() => import("@/components/route-map"), {
   ssr: false,
@@ -36,6 +37,8 @@ export default function Planner() {
   // US 1.2: crowds are forecast for the walk that starts at this offset
   const [departIn, setDepartIn] = useState(0);
   const [departAt, setDepartAt] = useState("");
+  // dismissed per route: switching route is a new warning, not the same one
+  const [warnDismissed, setWarnDismissed] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string>("checking data…");
@@ -53,6 +56,7 @@ export default function Planner() {
     setError(null);
     setOpenLabel(null);
     setAlertDismissed(false);
+    setWarnDismissed([]); // a new search is a new set of conditions
     try {
       const { weights, threshold, alertsEnabled } = loadSettings();
       setThreshold(threshold);
@@ -95,6 +99,12 @@ export default function Planner() {
   const calmest = routes.find((r) => r.label === "Lowest Sensory Load") ?? null;
   const highRoutes = routes.filter((r) => r.band === "High");
   const showAlert = alertsOn && !alertDismissed && highRoutes.length > 0 && !current;
+  // AC 1.2.2: warn on the route being followed, once, until it is dismissed
+  const showWarning =
+    alertsOn &&
+    !!current &&
+    current.congestion.length > 0 &&
+    !warnDismissed.includes(current.label);
   const calmestSli = routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
 
   // honest, human wording: "Updated 12 min ago", never "live" next to a stale age
@@ -238,7 +248,15 @@ export default function Planner() {
         </div>
 
         {/* map */}
-        <div className="el-1 h-[420px] min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-line lg:h-auto">
+        <div className="el-1 relative h-[420px] min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-line lg:h-auto">
+          {/* AC 1.2.2: warning banner sits at the top of the map, for the
+              route the user is actually following */}
+          {showWarning && current && (
+            <SensoryWarningBanner
+              route={current}
+              onDismiss={() => setWarnDismissed([...warnDismissed, current.label])}
+            />
+          )}
           <RouteMap
             routes={routes}
             selected={openLabel ?? hoverLabel}

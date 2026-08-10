@@ -8,8 +8,11 @@ import { CONGESTION_COLOR } from "@/lib/route-colors";
    conditions it starts in, so every stretch is stated with its own arrival
    time. Silence is a result too: when nothing is congested, say so plainly. */
 
+// Capitalised here rather than in CSS: ::first-letter has no effect on an
+// inline box, and `capitalize` would word-capitalise ("Path Near Gurners Lane").
 function place(c: Corridor): string {
-  return c.nearby ? `path near ${c.street}` : c.street;
+  const s = c.nearby ? `path near ${c.street}` : c.street;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function busyness(c: Corridor): string {
@@ -58,7 +61,7 @@ export default function CongestionNotice({ route, departAt }: { route: Route; de
               style={{ background: CONGESTION_COLOR }}
             />
             <span className="min-w-0 flex-1">
-              <span className="font-medium capitalize">{place(c)}</span>
+              <span className="font-medium">{place(c)}</span>
               <span className="text-inksoft">
                 {" "}
                 — {busyness(c)}, about {c.people_per_min} people a minute
