@@ -12,7 +12,9 @@ System Design.html
 
 # regenerable data artifacts (rebuild with the pipeline, see README)
 sensory-navigator/sensory.db
-sensory-navigator/data/
+sensory-navigator/data/*
+!sensory-navigator/data/walk_graph.graphml
+!sensory-navigator/data/edge_sensors.parquet
 sensory-navigator/cache/
 
 # python

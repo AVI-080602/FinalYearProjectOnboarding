@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sensory-navigator-api
+    runtime: python
+    rootDir: sensory-navigator
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.api.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: DATABASE_URL
+        sync: false # paste the Neon connection string in the Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false # the Vercel frontend URL, e.g. https://sensory-navigator.vercel.app

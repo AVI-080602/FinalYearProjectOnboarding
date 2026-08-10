@@ -106,6 +106,19 @@ npm run dev          # http://localhost:3000 (expects the API on :8000)
 Quality tooling: `npm run lint` (ESLint), `npm run format` (Prettier),
 TypeScript checked on build.
 
+## Hosting
+
+- Database: Neon PostgreSQL (Sydney), already live.
+- Backend API: Render web service, configured by `render.yaml` at the repo
+  root. Needs two dashboard env vars: `DATABASE_URL` (the Neon string) and
+  `ALLOWED_ORIGINS` (the Vercel frontend URL). The prebuilt graph artifacts
+  in `sensory-navigator/data/` are committed so deploys need no graph build.
+- Frontend: Vercel, import the repo with root directory `frontend` and set
+  `NEXT_PUBLIC_API_URL` to the Render service URL.
+- Free-tier note: the Render service sleeps after ~15 min idle; the first
+  request after that takes a minute or two while the engine reloads. Hit
+  `/api/status` once before a demo to warm it.
+
 ## Team workflow
 
 - Branch from `main` per feature: `feature/<short-name>` (e.g. `feature/route-planner-ui`)

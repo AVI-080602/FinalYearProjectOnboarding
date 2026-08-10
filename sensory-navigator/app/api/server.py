@@ -39,9 +39,20 @@ def _refresh() -> str:
 
 
 app = FastAPI(title="Sensory Navigator API", lifespan=lifespan)
+
+# local dev by default; add the deployed frontend via ALLOWED_ORIGINS
+# (comma-separated). Vercel preview deploys are matched by the regex.
+import os as _os
+
+_origins = [
+    o.strip()
+    for o in _os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
