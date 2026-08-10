@@ -4,10 +4,7 @@ import type { Route } from "@/lib/api";
 import { ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
 
 // Comfort labels (AC 1.1.3/1.1.4): friendly names, never colour-alone.
-export const COMFORT: Record<
-  Route["label"],
-  { name: string; hint: string; glyph: string }
-> = {
+export const COMFORT: Record<Route["label"], { name: string; hint: string; glyph: string }> = {
   "Lowest Sensory Load": {
     name: "Calmest",
     hint: "least sensory load",
@@ -35,7 +32,10 @@ function Swatch({ label }: { label: Route["label"] }) {
   return (
     <svg width="26" height="6" aria-hidden className="shrink-0">
       <line
-        x1="1" y1="3" x2="25" y2="3"
+        x1="1"
+        y1="3"
+        x2="25"
+        y2="3"
         stroke={ROUTE_COLORS[label]}
         strokeWidth="3.5"
         strokeLinecap="round"
@@ -66,9 +66,7 @@ export default function RouteCard({
   // comparative framing only when it means something: ratios explode on a
   // near-zero base, so fall back to plain words for tiny differences
   const ratio =
-    calmestSli >= 1 && route.sli > calmestSli
-      ? Math.round(route.sli / calmestSli)
-      : null;
+    calmestSli >= 1 && route.sli > calmestSli ? Math.round(route.sli / calmestSli) : null;
   const compare =
     ratio && ratio >= 2
       ? `about ${ratio}x the load of Calmest`
@@ -88,6 +86,13 @@ export default function RouteCard({
       }`}
       style={{ animationDelay: `${delayMs}ms` }}
     >
+      {/* AC 1.2.3: the lowest personalised load is called out as the pick */}
+      {route.recommended && (
+        <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-euca px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-card">
+          <span aria-hidden>★</span> Recommended for you
+        </span>
+      )}
+
       <div className="flex items-center justify-between gap-2">
         <span
           className="flex items-center gap-2 font-semibold"
@@ -105,9 +110,7 @@ export default function RouteCard({
           {route.minutes}
           <span className="ml-1 text-base font-normal text-inksoft">min</span>
         </span>
-        <span className="text-sm text-inksoft">
-          {(route.length_m / 1000).toFixed(1)} km
-        </span>
+        <span className="text-sm text-inksoft">{(route.length_m / 1000).toFixed(1)} km</span>
         <span
           className="ml-auto text-sm text-inksoft"
           title="Sensory load, 0 (calm) to 100 (overwhelming)"
@@ -116,7 +119,20 @@ export default function RouteCard({
         </span>
       </div>
 
-      <p className="mt-1.5 text-xs text-inksoft">
+      {/* US 1.2 at a glance: does this route walk you through crowds or not */}
+      <p className="mt-2 text-xs font-semibold">
+        {route.congestion.length > 0 ? (
+          <span className="text-clay">
+            <span aria-hidden>▲</span> {route.congested_m} m through predicted crowds
+          </span>
+        ) : (
+          <span className="text-euca">
+            <span aria-hidden>●</span> Avoids congested corridors
+          </span>
+        )}
+      </p>
+
+      <p className="mt-1 text-xs text-inksoft">
         {akaNote ? `${akaNote} · ` : ""}
         {compare ?? c.hint} · mostly {route.top_driver} · details
       </p>

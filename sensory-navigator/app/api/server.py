@@ -7,7 +7,10 @@ is re-pulled from the DB with a 5-minute cache. No auth anywhere by design.
 import math
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+MELBOURNE = ZoneInfo("Australia/Melbourne")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,9 +42,20 @@ def _refresh() -> str:
 
 
 app = FastAPI(title="Sensory Navigator API", lifespan=lifespan)
+
+# local dev by default; add the deployed frontend via ALLOWED_ORIGINS
+# (comma-separated). Vercel preview deploys are matched by the regex.
+import os as _os
+
+_origins = [
+    o.strip()
+    for o in _os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -76,6 +90,8 @@ class RouteRequest(BaseModel):
     destination: tuple[float, float]
     weights: dict[str, float] = Field(default_factory=lambda: dict(C.DEFAULT_WEIGHTS))
     threshold: int = C.DEFAULT_THRESHOLD
+    # US 1.2: plan ahead — congestion is forecast for the walk that starts then
+    depart_in_min: int = Field(default=0, ge=0, le=180)
 
 
 class SuggestionIn(BaseModel):
@@ -106,14 +122,28 @@ def routes(req: RouteRequest):
     for pt, name in ((req.origin, "origin"), (req.destination, "destination")):
         if not _in_bbox(*pt):
             raise HTTPException(422, f"{name} is outside the Melbourne CBD coverage area")
+    if _haversine_m(*req.origin, *req.destination) < 30:
+        raise HTTPException(422, "origin and destination are the same place")
     _refresh()
     e = state["engine"]
-    result = e.route(req.origin, req.destination, req.weights, e.live_by_sensor, req.threshold)
+    # profiles are keyed to Melbourne local time; the server may run in UTC
+    depart = datetime.now(MELBOURNE) + timedelta(minutes=req.depart_in_min)
+    result = e.route(req.origin, req.destination, req.weights, e.live_by_sensor,
+                     req.threshold, depart=depart)
     if not result:
         raise HTTPException(404, "no walkable route found between these points")
     for r in result:
         r.pop("nodes", None)  # internal graph ids, not part of the API contract
-    return {"routes": result, "data_status": e.data_status, "attribution": C.ATTRIBUTION}
+    return {
+        "routes": result,
+        "depart_at": depart.strftime("%H:%M"),
+        "congested_threshold": {
+            "level": C.CONGESTED_CROWD,
+            "people_per_min": C.DENSITY_LOW_MAX,
+        },
+        "data_status": e.data_status,
+        "attribution": C.ATTRIBUTION,
+    }
 
 
 @app.get("/api/refuges")
@@ -151,7 +181,7 @@ def refuges(lat: float, lon: float, tier: int | None = None,
 def forecast(location_id: int, hours: int = 1):
     _refresh()
     hours = max(1, min(hours, 3))
-    df = state["engine"].forecast_sensor(location_id, datetime.now(), hours=hours)
+    df = state["engine"].forecast_sensor(location_id, datetime.now(MELBOURNE), hours=hours)
     if df["counts_per_min"].isna().all():
         raise HTTPException(404, "no profile data for this sensor")
     slots = [

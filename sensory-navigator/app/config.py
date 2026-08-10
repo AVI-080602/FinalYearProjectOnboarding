@@ -1,7 +1,9 @@
 """Central configuration — dataset IDs, CBD bounds, density bands, SLI defaults."""
+import math
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
 
 # --- Data source: City of Melbourne Open Data (Opendatasoft, CC BY 4.0) ---
 ODS_BASE = "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets"
@@ -38,6 +40,14 @@ DEFAULT_THRESHOLD = 60          # SLI 0–100 above which an area counts as "Hig
 # Route variants: label -> lambda (sensory aversion multiplier in edge cost)
 ROUTE_LAMBDAS = {"Fastest": 0.0, "Balanced": 1.0, "Lowest Sensory Load": 3.0}
 
+# --- Congested corridors (US 1.2) ---
+# Calibrated to observed data: typical peak hours reach ~70 people/min, so the
+# DMP's Medium band start (50/min, level 0.33) is where "congested" begins.
+# The High band (150/min) is ~99.9th percentile and would never fire.
+CONGESTED_CROWD = 0.33
+MIN_CORRIDOR_M = 30       # station forecourts are compact: 30 m of dense crowd is real
+FORECAST_STEP_MIN = 15    # granularity for timing the walk against the profiles
+
 # --- IDW interpolation (sensor readings -> graph edges) ---
 IDW_POWER = 2
 IDW_RADIUS_M = 350        # beyond this, a sensor contributes nothing to an edge
@@ -48,3 +58,8 @@ LIVE_CACHE_SECONDS = 300  # 5 minutes
 
 # Sensory-source influence radii (metres) for static load layers
 SOURCE_RADIUS_M = {"music_venue": 60, "bar": 60, "construction": 120, "light": 40}
+
+# local equirectangular projection (metres per degree) around the CBD centre
+_LAT0 = (BBOX["lat_min"] + BBOX["lat_max"]) / 2
+M_PER_DEG_LAT = 111_132.0
+M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(_LAT0))

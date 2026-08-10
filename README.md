@@ -40,17 +40,22 @@ Prerequisites: Python 3.12+ (3.14 tested), Node 22+ (for the frontend).
 ```bash
 git clone https://github.com/AVI-080602/FinalYearProjectOnboarding.git
 cd FinalYearProjectOnboarding/sensory-navigator
-pip install -r requirements.txt
+pip install -r requirements.txt              # runtime (API + engine)
+pip install -r requirements-pipeline.txt     # + graph tools (only if rebuilding the graph)
 ```
 
 ### Database: hosted (default for the team)
 
 The team database is hosted PostgreSQL (Neon, Sydney). Get the `.env` file from
 the team chat, place it at `sensory-navigator/.env`, and you are connected: no
-data pipeline to run. You only need the local graph build (one-off, ~2 min):
+data pipeline to run. The compact routing graph ships in the repo
+(`data/graph_compact.npz`), so most teammates need no graph build at all.
+
+Rebuilding the graph (data engineer, once per iteration):
 
 ```bash
 python -m app.graph.build_graph       # OSM walk graph + sensory layer join
+python -m app.graph.compact           # compile the compact runtime graph
 ```
 
 One machine runs the data pipeline against the hosted DB (the data engineer).
@@ -94,6 +99,12 @@ Endpoints: `GET /api/status`, `POST /api/routes`, `GET /api/refuges`,
 `POST /api/suggestions` + `GET /api/suggestions?status=pending` (review queue).
 Interactive docs at http://localhost:8000/docs. No auth by design.
 
+`POST /api/routes` takes an optional `depart_in_min` (0-180). Each route comes
+back with `congestion`: the stretches predicted to be congested at the moment
+the walker reaches them (US 1.2), plus `congested_m` and a `recommended` flag
+on the lowest personalised-load option. Congestion needs `hourly_profile` rows;
+without them the forecast degrades to current live readings.
+
 ### Frontend
 
 ```bash
@@ -105,6 +116,19 @@ npm run dev          # http://localhost:3000 (expects the API on :8000)
 
 Quality tooling: `npm run lint` (ESLint), `npm run format` (Prettier),
 TypeScript checked on build.
+
+## Hosting
+
+- Database: Neon PostgreSQL (Sydney), already live.
+- Backend API: Render web service, configured by `render.yaml` at the repo
+  root. Needs two dashboard env vars: `DATABASE_URL` (the Neon string) and
+  `ALLOWED_ORIGINS` (the Vercel frontend URL). The prebuilt graph artifacts
+  in `sensory-navigator/data/` are committed so deploys need no graph build.
+- Frontend: Vercel, import the repo with root directory `frontend` and set
+  `NEXT_PUBLIC_API_URL` to the Render service URL.
+- Free-tier note: the Render service sleeps after ~15 min idle; the first
+  request after that takes a minute or two while the engine reloads. Hit
+  `/api/status` once before a demo to warm it.
 
 ## Team workflow
 

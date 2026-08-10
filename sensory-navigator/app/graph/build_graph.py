@@ -15,16 +15,11 @@ from scipy.spatial import cKDTree
 from sqlalchemy import select
 
 from .. import config as C
+from ..config import DATA_DIR, M_PER_DEG_LAT, M_PER_DEG_LON
 from ..db import Refuge, SensorLocation, SensorySource, engine
 
-DATA_DIR = C.PROJECT_ROOT / "data"
 GRAPH_PATH = DATA_DIR / "walk_graph.graphml"
 EDGE_SENSORS_PATH = DATA_DIR / "edge_sensors.parquet"
-
-# local equirectangular projection (metres) around the CBD centre
-LAT0 = (C.BBOX["lat_min"] + C.BBOX["lat_max"]) / 2
-M_PER_DEG_LAT = 111_132.0
-M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(LAT0))
 
 
 def to_xy(lat, lon):
