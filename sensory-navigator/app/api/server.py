@@ -77,6 +77,13 @@ class RouteRequest(BaseModel):
     weights: dict[str, float] = Field(default_factory=lambda: dict(C.DEFAULT_WEIGHTS))
     threshold: int = C.DEFAULT_THRESHOLD
 
+class RouteForecastRequest(BaseModel):
+    origin: tuple[float, float]
+    destination: tuple[float, float]
+    label: str
+    weights: dict[str, float] = Field(default_factory=lambda: dict(C.DEFAULT_WEIGHTS))
+    threshold: int = C.DEFAULT_THRESHOLD
+    start_time: datetime | None = None
 
 class SuggestionIn(BaseModel):
     name: str = Field(min_length=2, max_length=120)
@@ -145,6 +152,45 @@ def refuges(lat: float, lon: float, tier: int | None = None,
         })
     out.sort(key=lambda x: x["distance_m"])
     return {"refuges": out[:limit], "total_in_area": len(out), "attribution": C.ATTRIBUTION}
+
+@app.post("/api/route-forecast")
+def route_forecast(req: RouteForecastRequest):
+    for pt, name in ((req.origin, "origin"), (req.destination, "destination")):
+        if not _in_bbox(*pt):
+            raise HTTPException(
+                422,
+                f"{name} is outside the Melbourne CBD coverage area",
+            )
+
+    _refresh()
+    e = state["engine"]
+
+    try:
+        slots = e.forecast_route(
+            req.origin,
+            req.destination,
+            req.label,
+            req.weights,
+            req.threshold,
+            req.start_time or datetime.now(),
+            hours=24,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    return {
+        "route_label": req.label,
+        "threshold": req.threshold,
+        "slots": [
+            {
+                "time": slot["time"].isoformat(),
+                "sli": slot["sli"],
+                "band": slot["band"],
+                "breakdown": slot["breakdown"],
+            }
+            for slot in slots
+        ],
+    }
 
 
 @app.get("/api/forecast/{location_id}")

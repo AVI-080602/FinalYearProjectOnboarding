@@ -37,6 +37,19 @@ export type ApiStatus = {
 
 export type Weights = { crowd: number; noise: number; light: number };
 
+export type RouteForecastSlot = {
+  time: string;
+  sli: number;
+  band: "High" | "Low";
+  breakdown: Breakdown;
+};
+
+export type RouteForecastResponse = {
+  route_label: Route["label"];
+  threshold: number;
+  slots: RouteForecastSlot[];
+};
+
 export async function fetchRoutes(
   origin: [number, number],
   destination: [number, number],
@@ -58,5 +71,34 @@ export async function fetchRoutes(
 export async function fetchStatus(): Promise<ApiStatus> {
   const res = await fetch(`${BASE}/api/status`);
   if (!res.ok) throw new Error("status unavailable");
+  return res.json();
+}
+
+export async function fetchRouteForecast(
+  origin: [number, number],
+  destination: [number, number],
+  label: Route["label"],
+  weights: Weights,
+  threshold: number,
+  startTime?: string
+): Promise<RouteForecastResponse> {
+  const res = await fetch(`${BASE}/api/route-forecast`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      origin,
+      destination,
+      label,
+      weights,
+      threshold,
+      start_time: startTime,
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `forecast service error (${res.status})`);
+  }
+
   return res.json();
 }

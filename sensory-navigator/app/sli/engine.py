@@ -216,3 +216,49 @@ class SensoryEngine:
             cpm = (p["avg_count"].iloc[0] / 60.0 if not p.empty else np.nan) * anchor
             rows.append({"time": ts, "counts_per_min": cpm})
         return pd.DataFrame(rows)
+
+    def forecast_route(
+        self,
+        origin: tuple,
+        dest: tuple,
+        label: str,
+        weights: dict[str, float],
+        threshold: int,
+        when: datetime,
+        hours: int = 24,
+    ) -> list[dict]:
+        """Forecast hourly sensory-load scores for one fixed selected route."""
+        if label not in C.ROUTE_LAMBDAS:
+            raise ValueError(f"unknown route label: {label}")
+
+        hours = max(1, min(hours, 24))
+
+        # Reconstruct the selected route using the current conditions.
+        self.apply_sli(weights, self.live_by_sensor)
+        o = self.nearest_node(*origin)
+        t = self.nearest_node(*dest)
+        nodes = nx.shortest_path(self.G, o, t, weight=f"cost_{label}")
+
+        # Forecast from the beginning of the selected hour.
+        start = when.replace(minute=0, second=0, microsecond=0)
+
+        slots = []
+
+        for i in range(hours):
+            ts = start + timedelta(hours=i)
+
+            # Typical crowd level for this weekday + hour.
+            sensor_vals = self.profile_by_sensor(ts)
+
+            # Recalculate SLI while keeping the same route geometry.
+            self.apply_sli(weights, sensor_vals)
+            result = self._describe(nodes, label, threshold)
+
+            slots.append({
+                "time": ts,
+                "sli": result["sli"],
+                "band": result["band"],
+                "breakdown": result["breakdown"],
+            })
+
+        return slots

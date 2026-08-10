@@ -32,16 +32,15 @@ export default function RouteDetail({
   current,
   onSwitch,
   onClose,
+  onLeaveLater,
 }: {
   routes: Route[];
   current: Route;
   onSwitch: (label: Route["label"]) => void;
   onClose: () => void;
+  onLeaveLater: () => void;
 }) {
-  const maxFactor = Math.max(
-    ...routes.flatMap((r) => Object.values(r.breakdown)),
-    1
-  );
+  const maxFactor = Math.max(...routes.flatMap((r) => Object.values(r.breakdown)), 1);
 
   return (
     <section
@@ -79,9 +78,7 @@ export default function RouteDetail({
 
       <div className="mt-3 flex items-baseline justify-between">
         <p className="text-sm">
-          <span className="font-display text-2xl font-semibold">
-            {current.minutes} min
-          </span>
+          <span className="font-display text-2xl font-semibold">{current.minutes} min</span>
           <span className="ml-2 text-inksoft">
             {(current.length_m / 1000).toFixed(1)} km · load {current.sli}/100
           </span>
@@ -124,9 +121,7 @@ export default function RouteDetail({
             <span className="min-w-0 flex-1 truncate capitalize">
               {s.street === "walkway" ? "connecting paths" : s.street}
             </span>
-            <span className="shrink-0 text-xs tabular-nums text-inksoft">
-              {s.meters} m
-            </span>
+            <span className="shrink-0 text-xs tabular-nums text-inksoft">{s.meters} m</span>
           </li>
         ))}
       </ol>
@@ -134,20 +129,21 @@ export default function RouteDetail({
       {/* honesty row: coverage + confidence, always visible */}
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-xs text-inksoft">
         <span>
-          Sensor coverage{" "}
-          <span className="font-semibold text-ink">{current.coverage_pct}%</span>
+          Sensor coverage <span className="font-semibold text-ink">{current.coverage_pct}%</span>
         </span>
         <span>
-          Confidence{" "}
-          <span className="font-semibold capitalize text-ink">
-            {current.confidence}
-          </span>
+          Confidence <span className="font-semibold capitalize text-ink">{current.confidence}</span>
         </span>
         <span>
-          Construction zones{" "}
-          <span className="font-semibold text-ink">{current.constr_edges}</span>
+          Construction zones <span className="font-semibold text-ink">{current.constr_edges}</span>
         </span>
       </div>
+      <button
+        onClick={onLeaveLater}
+        className="mt-4 w-full rounded-xl border border-euca bg-eucasoft px-4 py-2.5 font-semibold text-euca transition-colors hover:bg-euca hover:text-card focus-visible:outline-2 focus-visible:outline-euca"
+      >
+        Leave later
+      </button>
     </section>
   );
 }

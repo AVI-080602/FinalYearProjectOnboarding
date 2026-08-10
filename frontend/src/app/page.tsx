@@ -1,8 +1,15 @@
 "use client";
 
+import ForecastChart from "@/components/forecast-chart";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { fetchRoutes, fetchStatus, type Route } from "@/lib/api";
+import {
+  fetchRouteForecast,
+  fetchRoutes,
+  fetchStatus,
+  type Route,
+  type RouteForecastResponse,
+} from "@/lib/api";
 import { loadSettings } from "@/lib/settings";
 import { ROUTE_ORDER } from "@/lib/route-colors";
 import AppHeader from "@/components/app-header";
@@ -23,7 +30,13 @@ export default function Planner() {
   const [aka, setAka] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forecastOpen, setForecastOpen] = useState(false);
   const [dataStatus, setDataStatus] = useState<string>("checking data…");
+  const [forecast, setForecast] = useState<RouteForecastResponse | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+  const [forecastStartTime, setForecastStartTime] = useState("");
+  const [forecastOrigin, setForecastOrigin] = useState<Place | null>(null);
 
   useEffect(() => {
     fetchStatus()
@@ -37,14 +50,12 @@ export default function Planner() {
     setLoading(true);
     setError(null);
     setOpenLabel(null);
+    setForecastOpen(false);
+    setForecast(null);
+    setForecastError(null);
     try {
       const { weights, threshold } = loadSettings();
-      const res = await fetchRoutes(
-        origin.coords,
-        destination.coords,
-        weights,
-        threshold
-      );
+      const res = await fetchRoutes(origin.coords, destination.coords, weights, threshold);
       const sorted = [...res.routes].sort(
         (a, b) => ROUTE_ORDER.indexOf(a.label) - ROUTE_ORDER.indexOf(b.label)
       );
@@ -53,10 +64,7 @@ export default function Planner() {
       const dupNotes: Record<string, string[]> = {};
       for (const r of sorted) {
         const twin = unique.find(
-          (u) =>
-            u.length_m === r.length_m &&
-            u.minutes === r.minutes &&
-            u.sli === r.sli
+          (u) => u.length_m === r.length_m && u.minutes === r.minutes && u.sli === r.sli
         );
         if (twin) {
           (dupNotes[twin.label] ??= []).push(
@@ -66,11 +74,7 @@ export default function Planner() {
           unique.push(r);
         }
       }
-      setAka(
-        Object.fromEntries(
-          Object.entries(dupNotes).map(([k, v]) => [k, v.join(", ")])
-        )
-      );
+      setAka(Object.fromEntries(Object.entries(dupNotes).map(([k, v]) => [k, v.join(", ")])));
       setRoutes(unique);
       setDataStatus(res.data_status);
     } catch (e) {
@@ -82,8 +86,85 @@ export default function Planner() {
   }
 
   const current = routes.find((r) => r.label === openLabel) ?? null;
-  const calmestSli =
-    routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
+
+  async function openForecast(startTime?: string) {
+    if (!origin || !destination || !current) return;
+
+    setForecastOpen(true);
+    setForecastLoading(true);
+    setForecastError(null);
+
+    try {
+      const { weights, threshold } = loadSettings();
+
+      const res = await fetchRouteForecast(
+        (forecastOrigin ?? origin).coords,
+        destination.coords,
+        current.label,
+        weights,
+        threshold,
+        startTime
+      );
+
+      setForecast(res);
+    } catch (e) {
+      setForecastError(e instanceof Error ? e.message : "forecast could not be loaded");
+      setForecast(null);
+    } finally {
+      setForecastLoading(false);
+    }
+  }
+  async function updateForecast() {
+    if (!forecastOrigin || !destination || !current) return;
+
+    setForecastLoading(true);
+    setForecastError(null);
+
+    try {
+      const { weights, threshold } = loadSettings();
+
+      // Recalculate routes from the new starting point.
+      const routeRes = await fetchRoutes(
+        forecastOrigin.coords,
+        destination.coords,
+        weights,
+        threshold
+      );
+
+      const sorted = [...routeRes.routes].sort(
+        (a, b) => ROUTE_ORDER.indexOf(a.label) - ROUTE_ORDER.indexOf(b.label)
+      );
+
+      // Keep the same selected route type where possible.
+      const selected = sorted.find((r) => r.label === current.label) ?? sorted[0];
+
+      if (!selected) {
+        throw new Error("no route available from this starting point");
+      }
+
+      setRoutes(sorted);
+      setOrigin(forecastOrigin);
+      setOpenLabel(selected.label);
+      setDataStatus(routeRes.data_status);
+
+      // Recalculate the forecast for that route.
+      const forecastRes = await fetchRouteForecast(
+        forecastOrigin.coords,
+        destination.coords,
+        selected.label,
+        weights,
+        threshold,
+        forecastStartTime || undefined
+      );
+
+      setForecast(forecastRes);
+    } catch (e) {
+      setForecastError(e instanceof Error ? e.message : "route could not be updated");
+    } finally {
+      setForecastLoading(false);
+    }
+  }
+  const calmestSli = routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
 
   // honest, human wording: "Updated 12 min ago", never "live" next to a stale age
   const m = dataStatus.match(/live \((\d+) min old, (\d+) sensors\)/);
@@ -96,9 +177,7 @@ export default function Planner() {
   const statusChip = (
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
-        fresh
-          ? "border-euca/30 bg-eucasoft text-euca"
-          : "border-line bg-mist text-inksoft"
+        fresh ? "border-euca/30 bg-eucasoft text-euca" : "border-line bg-mist text-inksoft"
       }`}
       title="Where the crowd data stands right now"
     >
@@ -119,17 +198,8 @@ export default function Planner() {
             className="el-1 rounded-2xl border border-line bg-card p-4"
           >
             <div className="flex flex-col gap-3">
-              <SearchBox
-                label="From"
-                value={origin}
-                onChange={setOrigin}
-                allowMyLocation
-              />
-              <SearchBox
-                label="To"
-                value={destination}
-                onChange={setDestination}
-              />
+              <SearchBox label="From" value={origin} onChange={setOrigin} allowMyLocation />
+              <SearchBox label="To" value={destination} onChange={setDestination} />
             </div>
 
             <button
@@ -169,22 +239,88 @@ export default function Planner() {
           )}
 
           {/* AC 1.1.4-1.1.7: detail panel */}
-          {current && (
+          {current && !forecastOpen && (
             <RouteDetail
               routes={routes}
               current={current}
               onSwitch={(l) => setOpenLabel(l)}
               onClose={() => setOpenLabel(null)}
+              onLeaveLater={() => {
+                setForecastOrigin(origin);
+                openForecast();
+              }}
             />
+          )}
+          {current && forecastOpen && (
+            <section className="rise-in rounded-[14px] border border-line bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-inksoft">
+                    Leave later
+                  </p>
+                  <h2 className="mt-1 font-display text-2xl font-semibold">
+                    24-hour sensory forecast
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() => setForecastOpen(false)}
+                  aria-label="Back to route details"
+                  className="grid h-10 w-10 place-items-center rounded-full text-inksoft hover:bg-mist"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <SearchBox
+                  label="Location"
+                  value={forecastOrigin}
+                  onChange={setForecastOrigin}
+                  allowMyLocation
+                />
+              </div>
+
+              <div className="mt-4">
+                <label
+                  htmlFor="forecast-time"
+                  className="text-xs font-semibold uppercase tracking-wide text-inksoft"
+                >
+                  Today
+                </label>
+
+                <input
+                  id="forecast-time"
+                  type="datetime-local"
+                  value={forecastStartTime}
+                  onChange={(e) => {
+                    setForecastStartTime(e.target.value);
+                  }}
+                  className="input-calm mt-1 w-full rounded-xl border border-line px-3.5 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-euca"
+                />
+                <button
+                  onClick={updateForecast}
+                  disabled={!forecastOrigin || forecastLoading}
+                  className="mt-3 w-full rounded-xl bg-euca px-4 py-2.5 text-sm font-semibold text-card transition-all hover:brightness-110 disabled:opacity-40"
+                >
+                  {forecastLoading ? "Updating forecast…" : "Update forecast"}
+                </button>
+              </div>
+              {forecastLoading && <p className="mt-4 text-sm text-inksoft">Loading forecast…</p>}
+
+              {forecastError && <p className="mt-4 text-sm text-clay">{forecastError}</p>}
+
+              {forecast && <ForecastChart slots={forecast.slots} threshold={forecast.threshold} />}
+            </section>
           )}
 
           {routes.length === 0 && !error && !loading && (
             <div className="rounded-2xl border border-dashed border-line p-4 text-sm text-inksoft">
               <p className="font-semibold text-ink">How it works</p>
               <p className="mt-1">
-                Search any two places in Melbourne CBD. You get up to three
-                routes: the calmest, a balanced option, and the fastest, each
-                scored for crowds, noise, light and construction.
+                Search any two places in Melbourne CBD. You get up to three routes: the calmest, a
+                balanced option, and the fastest, each scored for crowds, noise, light and
+                construction.
               </p>
             </div>
           )}
@@ -202,9 +338,9 @@ export default function Planner() {
       </main>
 
       <footer className="mx-auto w-full max-w-[1500px] px-5 pb-4 text-xs text-inksoft">
-        Data: City of Melbourne Open Data (CC BY 4.0) · Map: © OpenStreetMap
-        contributors © CARTO · Search: © OpenStreetMap Nominatim · No logins,
-        no tracking: your settings stay in your browser.
+        Data: City of Melbourne Open Data (CC BY 4.0) · Map: © OpenStreetMap contributors © CARTO ·
+        Search: © OpenStreetMap Nominatim · No logins, no tracking: your settings stay in your
+        browser.
       </footer>
     </div>
   );
