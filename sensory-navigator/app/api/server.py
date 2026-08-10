@@ -7,7 +7,7 @@ is re-pulled from the DB with a 5-minute cache. No auth anywhere by design.
 import math
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -87,6 +87,8 @@ class RouteRequest(BaseModel):
     destination: tuple[float, float]
     weights: dict[str, float] = Field(default_factory=lambda: dict(C.DEFAULT_WEIGHTS))
     threshold: int = C.DEFAULT_THRESHOLD
+    # US 1.2: plan ahead — congestion is forecast for the walk that starts then
+    depart_in_min: int = Field(default=0, ge=0, le=180)
 
 
 class SuggestionIn(BaseModel):
@@ -117,14 +119,27 @@ def routes(req: RouteRequest):
     for pt, name in ((req.origin, "origin"), (req.destination, "destination")):
         if not _in_bbox(*pt):
             raise HTTPException(422, f"{name} is outside the Melbourne CBD coverage area")
+    if _haversine_m(*req.origin, *req.destination) < 30:
+        raise HTTPException(422, "origin and destination are the same place")
     _refresh()
     e = state["engine"]
-    result = e.route(req.origin, req.destination, req.weights, e.live_by_sensor, req.threshold)
+    depart = datetime.now() + timedelta(minutes=req.depart_in_min)
+    result = e.route(req.origin, req.destination, req.weights, e.live_by_sensor,
+                     req.threshold, depart=depart)
     if not result:
         raise HTTPException(404, "no walkable route found between these points")
     for r in result:
         r.pop("nodes", None)  # internal graph ids, not part of the API contract
-    return {"routes": result, "data_status": e.data_status, "attribution": C.ATTRIBUTION}
+    return {
+        "routes": result,
+        "depart_at": depart.strftime("%H:%M"),
+        "congested_threshold": {
+            "level": C.CONGESTED_CROWD,
+            "people_per_min": C.DENSITY_MEDIUM_MAX,
+        },
+        "data_status": e.data_status,
+        "attribution": C.ATTRIBUTION,
+    }
 
 
 @app.get("/api/refuges")

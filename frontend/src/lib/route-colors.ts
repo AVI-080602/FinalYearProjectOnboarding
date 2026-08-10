@@ -9,11 +9,12 @@ export const ROUTE_COLORS: Record<Route["label"], string> = {
 };
 
 // Calm-first everywhere: the order is the product's opinion.
-export const ROUTE_ORDER: Route["label"][] = [
-  "Lowest Sensory Load",
-  "Balanced",
-  "Fastest",
-];
+export const ROUTE_ORDER: Route["label"][] = ["Lowest Sensory Load", "Balanced", "Fastest"];
+
+// US 1.2: congested stretches are marked in clay, the system's warm alert
+// colour. Never red, and never colour alone: the map pairs it with a tooltip
+// and the panel lists every stretch in words.
+export const CONGESTION_COLOR = "#c05621";
 
 // Redundant encoding: every route differs by dash pattern, not colour alone.
 export const ROUTE_DASH: Record<Route["label"], string | undefined> = {

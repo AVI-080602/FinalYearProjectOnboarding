@@ -99,6 +99,12 @@ Endpoints: `GET /api/status`, `POST /api/routes`, `GET /api/refuges`,
 `POST /api/suggestions` + `GET /api/suggestions?status=pending` (review queue).
 Interactive docs at http://localhost:8000/docs. No auth by design.
 
+`POST /api/routes` takes an optional `depart_in_min` (0-180). Each route comes
+back with `congestion`: the stretches predicted to be congested at the moment
+the walker reaches them (US 1.2), plus `congested_m` and a `recommended` flag
+on the lowest personalised-load option. Congestion needs `hourly_profile` rows;
+without them the forecast degrades to current live readings.
+
 ### Frontend
 
 ```bash

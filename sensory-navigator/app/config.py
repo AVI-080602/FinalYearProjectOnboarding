@@ -40,6 +40,13 @@ DEFAULT_THRESHOLD = 60          # SLI 0–100 above which an area counts as "Hig
 # Route variants: label -> lambda (sensory aversion multiplier in edge cost)
 ROUTE_LAMBDAS = {"Fastest": 0.0, "Balanced": 1.0, "Lowest Sensory Load": 3.0}
 
+# --- Congested corridors (US 1.2) ---
+# A corridor counts as congested at the DMP's "High" density band (150/min),
+# expressed on the engine's 0-1 crowd scale.
+CONGESTED_CROWD = 0.67
+MIN_CORRIDOR_M = 60       # shorter congested runs are sensor noise, not a corridor
+FORECAST_STEP_MIN = 15    # granularity for timing the walk against the profiles
+
 # --- IDW interpolation (sensor readings -> graph edges) ---
 IDW_POWER = 2
 IDW_RADIUS_M = 350        # beyond this, a sensor contributes nothing to an edge

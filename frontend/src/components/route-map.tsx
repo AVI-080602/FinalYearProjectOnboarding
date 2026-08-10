@@ -3,16 +3,9 @@
 import "leaflet/dist/leaflet.css";
 
 import { useEffect } from "react";
-import {
-  CircleMarker,
-  MapContainer,
-  Polyline,
-  TileLayer,
-  Tooltip,
-  useMap,
-} from "react-leaflet";
+import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { Route } from "@/lib/api";
-import { ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
+import { CONGESTION_COLOR, ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
 
 const CBD: [number, number] = [-37.8136, 144.9631];
 
@@ -46,17 +39,37 @@ export default function RouteMap({
   destination: [number, number] | null;
 }) {
   return (
-    <MapContainer
-      center={CBD}
-      zoom={14}
-      scrollWheelZoom
-      className="h-full w-full"
-    >
+    <MapContainer center={CBD} zoom={14} scrollWheelZoom className="h-full w-full">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
       <FitToRoutes routes={routes} />
+
+      {/* AC 1.2.1 / F5: congested stretches, drawn under the route as a
+          highlighter band so they read against any route colour. */}
+      {routes.map((r) =>
+        selected !== null && selected !== r.label
+          ? null
+          : r.congestion.map((c, i) => (
+              <Polyline
+                key={`${r.label}-congestion-${i}`}
+                positions={c.coords}
+                pathOptions={{
+                  color: CONGESTION_COLOR,
+                  weight: 17,
+                  opacity: 0.3,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              >
+                <Tooltip sticky>
+                  Busy: {c.nearby ? `path near ${c.street}` : c.street} · ~{c.people_per_min}{" "}
+                  people/min · in ~{c.eta_min} min
+                </Tooltip>
+              </Polyline>
+            ))
+      )}
 
       {routes.map((r) => {
         const active = selected === null || selected === r.label;
