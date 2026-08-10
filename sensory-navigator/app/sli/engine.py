@@ -1,30 +1,35 @@
-"""The Sensory Load Index engine + router.
+"""The Sensory Load Index engine + router (compact runtime).
 
-SLI per edge (0–1):
-    base   = w_c·crowd + w_n·noise + w_l·light      (user weights, sum to 1)
-    SLI    = clip( base + 0.25·construction − 0.15·refuge_relief , 0, 1 )
+Loads the precompiled graph arrays (app/graph/compact.py) instead of the
+GraphML: no osmnx/networkx at runtime, so the hosted API fits in 512 MB.
+
+SLI per edge (0-1):
+    base   = w_c*crowd + w_n*noise + w_l*light      (user weights, sum to 1)
+    SLI    = clip( base + 0.25*construction - 0.15*refuge_relief , 0, 1 )
 
 crowd is the only live term: latest sensor readings spread onto edges via
 precomputed IDW weights; profile fallback when live data is stale/absent.
 
-Edge cost for routing:  length · (1 + λ·SLI)
-    λ = 0 Fastest · 1 Balanced · 3 Lowest Sensory Load
+Edge cost for routing:  length * (1 + lambda*SLI)
+    lambda = 0 Fastest, 1 Balanced, 3 Lowest Sensory Load
 """
+import heapq
 from datetime import datetime, timedelta
 
-import networkx as nx
 import numpy as np
-import osmnx as ox
 import pandas as pd
+from scipy.spatial import cKDTree
 from sqlalchemy import text
 
 from .. import config as C
 from ..db import engine as db_engine
-from ..graph.build_graph import EDGE_SENSORS_PATH, GRAPH_PATH
+from ..graph.build_graph import DATA_DIR, M_PER_DEG_LAT, M_PER_DEG_LON
 
+COMPACT_PATH = DATA_DIR / "graph_compact.npz"
 WALK_M_PER_MIN = 80.0  # ~4.8 km/h
 
-# counts/minute -> 0–1, anchored on the DMP bands (50 / 150 people per minute)
+
+# counts/minute -> 0-1, anchored on the DMP bands (50 / 150 people per minute)
 def crowd_norm(counts_per_min: np.ndarray) -> np.ndarray:
     return np.interp(counts_per_min, [0, C.DENSITY_LOW_MAX, C.DENSITY_MEDIUM_MAX, 300],
                      [0.0, 0.33, 0.67, 1.0])
@@ -32,14 +37,32 @@ def crowd_norm(counts_per_min: np.ndarray) -> np.ndarray:
 
 class SensoryEngine:
     def __init__(self) -> None:
-        self.G = ox.load_graphml(GRAPH_PATH)
-        for _, _, d in self.G.edges(data=True):
-            for a in ("noise_load", "light_load", "constr_load", "refuge_relief"):
-                d[a] = float(d.get(a, 0.0))
-            d["length"] = float(d["length"])
-        ew = pd.read_parquet(EDGE_SENSORS_PATH)
-        self._edge_sensor_groups = ew.groupby(["u", "v", "k"])
-        self._ew = ew
+        z = np.load(COMPACT_PATH, allow_pickle=True)
+        self.lat: np.ndarray = z["node_lat"]
+        self.lon: np.ndarray = z["node_lon"]
+        self.eu: np.ndarray = z["edge_u"]
+        self.ev: np.ndarray = z["edge_v"]
+        self.elen: np.ndarray = z["edge_len"].astype(np.float64)
+        self.enoise: np.ndarray = z["edge_noise"].astype(np.float64)
+        self.elight: np.ndarray = z["edge_light"].astype(np.float64)
+        self.econstr: np.ndarray = z["edge_constr"].astype(np.float64)
+        self.erelief: np.ndarray = z["edge_relief"].astype(np.float64)
+        self.ename: np.ndarray = z["edge_name"]
+        self.names: list[str] = list(z["names"])
+        self.indptr: np.ndarray = z["indptr"]
+        self.sens_edge: np.ndarray = z["sens_edge"]
+        self.sens_loc: np.ndarray = z["sens_loc"]
+        self.sens_w: np.ndarray = z["sens_w"].astype(np.float64)
+        self.n_edges = len(self.eu)
+
+        xy = np.column_stack([self.lon * M_PER_DEG_LON, self.lat * M_PER_DEG_LAT])
+        self._node_tree = cKDTree(xy)
+
+        # per-request state
+        self._sli: np.ndarray = np.zeros(self.n_edges)
+        self._crowd: np.ndarray = np.zeros(self.n_edges)
+        self._known: np.ndarray = np.zeros(self.n_edges, dtype=bool)
+
         self.live_asof: datetime | None = None
         self.live_by_sensor: dict[int, float] = {}
         self.data_status = "no data"
@@ -63,7 +86,6 @@ class SensoryEngine:
         df["sensing_datetime"] = pd.to_datetime(df["sensing_datetime"])
         self.live_asof = df["sensing_datetime"].max()
         age_min = (datetime.utcnow() - self.live_asof).total_seconds() / 60
-        # keep only sensors that reported near the latest timestamp
         fresh = df[df["sensing_datetime"] >= self.live_asof - timedelta(minutes=20)]
         self.live_by_sensor = dict(
             zip(fresh["location_id"].astype(int),
@@ -85,90 +107,113 @@ class SensoryEngine:
         return dict(zip(df["location_id"].astype(int),
                         crowd_norm(df["avg_count"].values / 60.0)))
 
-    def edge_crowd(self, sensor_vals: dict[int, float]) -> dict[tuple, float]:
-        """IDW-weighted sensor values per edge. Edges with no sensor in radius: NaN."""
-        if not sensor_vals:
-            return {}
-        ew = self._ew
-        vals = ew["location_id"].map(sensor_vals)
-        ok = ew[vals.notna()].assign(val=vals.dropna() * ew.loc[vals.notna(), "idw_weight"])
-        agg = ok.groupby(["u", "v", "k"]).agg(num=("val", "sum"), den=("idw_weight", "sum"))
-        return dict(zip(agg.index, (agg["num"] / agg["den"]).values))
-
     # ---------- SLI + routing ----------
 
     def apply_sli(self, weights: dict[str, float], sensor_vals: dict[int, float]) -> None:
-        """Write 'sli' + per-λ 'cost_*' attributes onto every edge."""
+        """Vectorised: crowd overlay + personalised SLI for every edge at once."""
+        num = np.zeros(self.n_edges)
+        den = np.zeros(self.n_edges)
+        if sensor_vals:
+            v = np.array([sensor_vals.get(int(l), np.nan) for l in self.sens_loc])
+            ok = ~np.isnan(v)
+            np.add.at(num, self.sens_edge[ok], v[ok] * self.sens_w[ok])
+            np.add.at(den, self.sens_edge[ok], self.sens_w[ok])
+        self._known = den > 0
+        self._crowd = np.where(self._known, num / np.where(den > 0, den, 1.0), 0.0)
+
         wsum = sum(weights.values()) or 1.0
-        wc, wn, wl = (weights.get(k, 0) / wsum for k in ("crowd", "noise", "light"))
-        crowd = self.edge_crowd(sensor_vals)
-        for u, v, k, d in self.G.edges(keys=True, data=True):
-            c = crowd.get((u, v, k))
-            d["crowd_known"] = c is not None
-            c = 0.0 if c is None else float(c)
-            d["crowd_val"] = c
-            base = wc * c + wn * d["noise_load"] + wl * d["light_load"]
-            sli = base + 0.25 * d["constr_load"] - 0.15 * d["refuge_relief"]
-            d["sli"] = float(np.clip(sli, 0.0, 1.0))
-            for label, lam in C.ROUTE_LAMBDAS.items():
-                d[f"cost_{label}"] = d["length"] * (1.0 + lam * d["sli"])
+        wc = weights.get("crowd", 0) / wsum
+        wn = weights.get("noise", 0) / wsum
+        wl = weights.get("light", 0) / wsum
+        base = wc * self._crowd + wn * self.enoise + wl * self.elight
+        self._sli = np.clip(base + 0.25 * self.econstr - 0.15 * self.erelief, 0.0, 1.0)
 
     def nearest_node(self, lat: float, lon: float) -> int:
-        return ox.distance.nearest_nodes(self.G, X=lon, Y=lat)
+        _, idx = self._node_tree.query([lon * M_PER_DEG_LON, lat * M_PER_DEG_LAT])
+        return int(idx)
+
+    def _dijkstra(self, source: int, target: int, cost: np.ndarray) -> list[int] | None:
+        """Returns the list of edge indices along the cheapest path, or None."""
+        n = len(self.lat)
+        dist = np.full(n, np.inf)
+        dist[source] = 0.0
+        pred_edge = np.full(n, -1, dtype=np.int64)
+        heap = [(0.0, source)]
+        indptr, ev = self.indptr, self.ev
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u == target:
+                break
+            if d > dist[u]:
+                continue
+            for e in range(indptr[u], indptr[u + 1]):
+                v = ev[e]
+                nd = d + cost[e]
+                if nd < dist[v]:
+                    dist[v] = nd
+                    pred_edge[v] = e
+                    heapq.heappush(heap, (nd, v))
+        if not np.isfinite(dist[target]):
+            return None
+        edges: list[int] = []
+        node = target
+        while node != source:
+            e = int(pred_edge[node])
+            if e < 0:
+                return None
+            edges.append(e)
+            node = int(self.eu[e])
+        edges.reverse()
+        return edges
 
     def route(self, origin: tuple, dest: tuple, weights: dict[str, float],
               sensor_vals: dict[int, float], threshold: int) -> list[dict]:
-        """The one call behind 7 ACs: 3 labelled route variants with scores."""
+        """The one call behind seven ACs: labelled route variants with scores."""
         self.apply_sli(weights, sensor_vals)
         o = self.nearest_node(*origin)
         t = self.nearest_node(*dest)
         out = []
-        for label in C.ROUTE_LAMBDAS:
-            try:
-                nodes = nx.shortest_path(self.G, o, t, weight=f"cost_{label}")
-            except nx.NetworkXNoPath:
+        for label, lam in C.ROUTE_LAMBDAS.items():
+            cost = self.elen * (1.0 + lam * self._sli)
+            edges = self._dijkstra(o, t, cost)
+            if edges is None:
                 continue
-            out.append(self._describe(nodes, label, threshold))
+            out.append(self._describe(edges, label, threshold))
         return out
 
-    def _describe(self, nodes: list[int], label: str, threshold: int) -> dict:
-        G = self.G
-        length = sli_wsum = crowd = noise = light = constr = 0.0
-        n_constr_edges = unknown_len = 0.0
-        steps: list[dict] = []  # walking directions grouped by street name
-        for u, v in zip(nodes[:-1], nodes[1:]):
-            d = min(G[u][v].values(), key=lambda e: e[f"cost_{label}"])
-            name = d.get("name") or "walkway"
-            if isinstance(name, list):
-                name = name[0]
+    def _describe(self, edges: list[int], label: str, threshold: int) -> dict:
+        e = np.array(edges, dtype=np.int64)
+        L = self.elen[e]
+        length = float(L.sum())
+        Lsafe = max(length, 1.0)
+        sli100 = round(100 * float((self._sli[e] * L).sum()) / Lsafe, 1)
+        crowd = float((self._crowd[e] * L).sum())
+        noise = float((self.enoise[e] * L).sum())
+        light = float((self.elight[e] * L).sum())
+        constr = float((self.econstr[e] * L).sum())
+        coverage = round(100 * float(L[self._known[e]].sum()) / Lsafe)
+        live_fresh = self.data_status.startswith("live")
+        confidence = ("high" if coverage >= 70 and live_fresh
+                      else "low" if coverage < 30 or not live_fresh else "medium")
+
+        # coords: origin node of each edge, then the final target node
+        node_seq = [int(self.eu[edges[0]])] + [int(self.ev[i]) for i in edges]
+        coords = [(float(self.lat[n]), float(self.lon[n])) for n in node_seq]
+
+        steps: list[dict] = []
+        for i in edges:
+            name = self.names[int(self.ename[i])]
             if steps and steps[-1]["street"] == name:
-                steps[-1]["meters"] += d["length"]
+                steps[-1]["meters"] += float(self.elen[i])
             else:
-                steps.append({"street": name, "meters": d["length"]})
-            length += d["length"]
-            sli_wsum += d["sli"] * d["length"]
-            crowd += d.get("crowd_val", 0.0) * d["length"]
-            noise += d["noise_load"] * d["length"]
-            light += d["light_load"] * d["length"]
-            constr += d["constr_load"] * d["length"]
-            if d["constr_load"] > 0.3:
-                n_constr_edges += 1
-            if not d.get("crowd_known"):
-                unknown_len += d["length"]
-        sli100 = round(100 * sli_wsum / max(length, 1), 1)
-        coords = [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in nodes]
+                steps.append({"street": name, "meters": float(self.elen[i])})
+
         drivers = sorted([
             ("crowds", crowd), ("noise (venues)", noise),
             ("bright lighting", light), ("construction", constr),
         ], key=lambda t: -t[1])
-        coverage = round(100 * (1 - unknown_len / max(length, 1)))
-        live_fresh = self.data_status.startswith("live")
-        confidence = ("high" if coverage >= 70 and live_fresh
-                      else "low" if coverage < 30 or not live_fresh else "medium")
-        L = max(length, 1)
         return {
             "label": label,
-            "nodes": nodes,
             "coords": coords,
             "length_m": round(length),
             "minutes": round(length / WALK_M_PER_MIN),
@@ -176,15 +221,14 @@ class SensoryEngine:
             "band": "High" if sli100 >= threshold else "Low",
             "top_driver": drivers[0][0],
             "breakdown": {
-                "crowd": round(100 * crowd / L, 1),
-                "noise": round(100 * noise / L, 1),
-                "light": round(100 * light / L, 1),
-                "construction": round(100 * constr / L, 1),
+                "crowd": round(100 * crowd / Lsafe, 1),
+                "noise": round(100 * noise / Lsafe, 1),
+                "light": round(100 * light / Lsafe, 1),
+                "construction": round(100 * constr / Lsafe, 1),
             },
-            "constr_edges": int(n_constr_edges),
+            "constr_edges": int((self.econstr[e] > 0.3).sum()),
             "coverage_pct": coverage,
             "confidence": confidence,
-            # short unnamed connectors folded out; metres rounded for display
             "steps": [
                 {"street": s["street"], "meters": round(s["meters"])}
                 for s in steps
@@ -206,7 +250,6 @@ class SensoryEngine:
         pnow = prof[(prof["weekday"] == when.weekday()) & (prof["hour"] == when.hour)]
         live = self.live_by_sensor.get(location_id)
         if live is not None and not pnow.empty and pnow["avg_count"].iloc[0] > 0:
-            # invert crowd_norm approximately: use profile counts scaled by live ratio
             typical = pnow["avg_count"].iloc[0] / 60.0
             live_cpm = np.interp(live, [0, 0.33, 0.67, 1.0], [0, 50, 150, 300])
             anchor = float(np.clip(live_cpm / max(typical, 1e-6), 0.4, 2.5))

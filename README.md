@@ -40,17 +40,22 @@ Prerequisites: Python 3.12+ (3.14 tested), Node 22+ (for the frontend).
 ```bash
 git clone https://github.com/AVI-080602/FinalYearProjectOnboarding.git
 cd FinalYearProjectOnboarding/sensory-navigator
-pip install -r requirements.txt
+pip install -r requirements.txt              # runtime (API + engine)
+pip install -r requirements-pipeline.txt     # + graph tools (only if rebuilding the graph)
 ```
 
 ### Database: hosted (default for the team)
 
 The team database is hosted PostgreSQL (Neon, Sydney). Get the `.env` file from
 the team chat, place it at `sensory-navigator/.env`, and you are connected: no
-data pipeline to run. You only need the local graph build (one-off, ~2 min):
+data pipeline to run. The compact routing graph ships in the repo
+(`data/graph_compact.npz`), so most teammates need no graph build at all.
+
+Rebuilding the graph (data engineer, once per iteration):
 
 ```bash
 python -m app.graph.build_graph       # OSM walk graph + sensory layer join
+python -m app.graph.compact           # compile the compact runtime graph
 ```
 
 One machine runs the data pipeline against the hosted DB (the data engineer).
