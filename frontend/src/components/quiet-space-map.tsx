@@ -11,6 +11,7 @@ import {
   useMap,
 } from "react-leaflet";
 import type { QuietSpace } from "@/types/quiet-space";
+import { getQuietSpaceCategoryColor } from "@/lib/quiet-space-style";
 
 type QuietSpaceMapProps = {
   spaces: QuietSpace[];
@@ -58,6 +59,8 @@ export default function QuietSpaceMap({
 
       {spaces.map((space) => {
         const active = space.id === selectedId;
+        const color = getQuietSpaceCategoryColor(space.category);
+
         return (
           <CircleMarker
             key={space.id}
@@ -65,8 +68,8 @@ export default function QuietSpaceMap({
             radius={active ? 10 : 5}
             eventHandlers={{ click: () => onSelect(space.id) }}
             pathOptions={{
-              color: active ? "#c05621" : "#0d8267",
-              fillColor: active ? "#c05621" : "#0d8267",
+              color: active ? "#22332d" : color,
+              fillColor: color,
               fillOpacity: active ? 0.95 : 0.6,
               weight: active ? 3 : 1,
             }}

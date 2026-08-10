@@ -1,10 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { categoryOptions } from "@/lib/quiet-space-category";
 import type { QuietSpace } from "@/types/quiet-space";
 import AppHeader from "@/components/app-header";
+import {
+  getQuietSpaceCategoryColor,
+  getQuietSpaceCategoryLabel,
+} from "@/lib/quiet-space-style";
 
 const QuietSpaceMap = dynamic(() => import("@/components/quiet-space-map"), {
   ssr: false,
@@ -12,6 +17,47 @@ const QuietSpaceMap = dynamic(() => import("@/components/quiet-space-map"), {
 
 const PAGE = 50;
 const MAP_CAP = 300;
+
+function getSensorySummary(space: QuietSpace) {
+  switch (space.category) {
+    case "Library":
+      return {
+        level: "Low",
+        confidence: "Medium",
+        reason:
+          "Libraries are likely to offer indoor seating, calmer behaviour expectations, and lower stimulation than busy streets.",
+      };
+    case "Informal Outdoor Facility (Park/Garden/Reserve)":
+      return {
+        level: "Low",
+        confidence: "Medium",
+        reason:
+          "Parks and gardens may provide open space, greenery, and room to pause away from dense pedestrian corridors.",
+      };
+    case "Art Gallery/Museum":
+      return {
+        level: "Medium",
+        confidence: "Low",
+        reason:
+          "Museums and galleries can be calm, but sensory conditions may vary with exhibitions, events, and visitor numbers.",
+      };
+    case "Seat":
+    case "Picnic Setting":
+      return {
+        level: "Medium",
+        confidence: "Low",
+        reason:
+          "This can support a short rest, but nearby street noise, lighting, and crowding may change quickly.",
+      };
+    default:
+      return {
+        level: "Variable",
+        confidence: "Low",
+        reason:
+          "This place may support a short break, but comfort depends on opening access and the surrounding environment.",
+      };
+  }
+}
 
 export default function Page() {
   const [spaces, setSpaces] = useState<QuietSpace[]>([]);
@@ -51,6 +97,24 @@ export default function Page() {
   }, [spaces, selectedCategory, query]);
 
   const visible = filtered.slice(0, limit);
+  const selectedSpace = useMemo(
+    () => spaces.find((space) => space.id === selectedId) ?? null,
+    [spaces, selectedId]
+  );
+  const sensorySummary = selectedSpace
+    ? getSensorySummary(selectedSpace)
+    : null;
+
+  useEffect(() => {
+    if (!selectedSpace) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedId(null);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedSpace]);
 
   function toggleCategory(category: string) {
     setLimit(PAGE);
@@ -103,10 +167,7 @@ export default function Page() {
                           : "bg-mist text-inksoft hover:bg-line"
                       }`}
                     >
-                      {category.replace(
-                        "Informal Outdoor Facility (Park/Garden/Reserve)",
-                        "Park / Garden"
-                      )}
+                      {getQuietSpaceCategoryLabel(category)}
                       <span
                         className={`ml-1.5 tabular-nums ${
                           active ? "text-card/80" : "text-inksoft/70"
@@ -131,7 +192,7 @@ export default function Page() {
           )}
 
           {!failed && spaces.length > 0 && (
-            <section className="el-1 flex min-h-0 flex-col rounded-2xl border border-line bg-card">
+            <section className="el-1 order-3 flex min-h-0 flex-col rounded-2xl border border-line bg-card">
               <p className="border-b border-line px-4 py-2.5 text-xs text-inksoft">
                 {filtered.length.toLocaleString()} match
                 {filtered.length === 1 ? "" : "es"} · showing{" "}
@@ -180,15 +241,40 @@ export default function Page() {
               )}
             </section>
           )}
+
         </div>
 
         {/* map */}
         <div className="el-1 h-[420px] min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-line lg:h-auto">
-          <QuietSpaceMap
-            spaces={filtered.slice(0, MAP_CAP)}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <div className="relative h-full">
+            <QuietSpaceMap
+              spaces={filtered.slice(0, MAP_CAP)}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            <div className="absolute bottom-3 left-3 z-[1000] max-w-[min(22rem,calc(100%-1.5rem))] rounded-xl border border-line bg-card/95 p-3 text-xs shadow-lg backdrop-blur">
+              <p className="mb-2 font-semibold text-ink">Calm place types</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                {categoryOptions
+                  .filter((category) => counts[category])
+                  .map((category) => (
+                    <span
+                      key={category}
+                      className="inline-flex items-center gap-1.5 text-inksoft"
+                    >
+                      <span
+                        aria-hidden
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{
+                          backgroundColor: getQuietSpaceCategoryColor(category),
+                        }}
+                      />
+                      {getQuietSpaceCategoryLabel(category)}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -196,6 +282,107 @@ export default function Page() {
         Data: City of Melbourne Open Data (CC BY 4.0) · Map: © OpenStreetMap
         contributors © CARTO
       </footer>
+
+      {selectedSpace && sensorySummary && (
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-ink/40 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calm-place-title"
+          onClick={() => setSelectedId(null)}
+        >
+          <section
+            className="w-full max-w-lg rounded-2xl border border-line bg-card p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-inksoft">
+                  Place summary
+                </p>
+                <h2
+                  id="calm-place-title"
+                  className="mt-1 font-display text-2xl text-ink"
+                >
+                  {selectedSpace.name}
+                </h2>
+                <p className="mt-1 text-sm text-inksoft">
+                  {selectedSpace.category}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                aria-label="Close calm place details"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-inksoft hover:bg-mist focus-visible:outline-2 focus-visible:outline-euca"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl bg-mist p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-ink">
+                  Estimated sensory level
+                </span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    sensorySummary.level === "Low"
+                      ? "bg-eucasoft text-euca"
+                      : sensorySummary.level === "Medium"
+                        ? "bg-claysoft text-clay"
+                        : "bg-claysoft text-clay"
+                  }`}
+                >
+                  {sensorySummary.level}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-inksoft">
+                {sensorySummary.reason}
+              </p>
+              <p className="mt-2 text-xs text-inksoft">
+                Confidence:{" "}
+                <span className="font-semibold text-ink">
+                  {sensorySummary.confidence}
+                </span>{" "}
+                · category-based estimate, not a live noise reading
+              </p>
+            </div>
+
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-inksoft">
+                  Wheelchair
+                </dt>
+                <dd className="mt-0.5 font-medium text-ink">
+                  {selectedSpace.wheelchair ?? "unknown"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-inksoft">
+                  Location
+                </dt>
+                <dd className="mt-0.5 font-medium text-ink">
+                  {selectedSpace.latitude.toFixed(4)},{" "}
+                  {selectedSpace.longitude.toFixed(4)}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mt-3 break-words text-xs text-inksoft">
+              Source: City of Melbourne Open Data via{" "}
+              {selectedSpace.sourceDataset}
+            </p>
+
+            <Link
+              href={`/?toLat=${selectedSpace.latitude}&toLng=${selectedSpace.longitude}&toName=${encodeURIComponent(selectedSpace.name)}`}
+              className="mt-4 inline-flex w-full justify-center rounded-xl bg-euca px-4 py-2.5 text-sm font-semibold text-card transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-ink"
+            >
+              Start walking navigation
+            </Link>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
