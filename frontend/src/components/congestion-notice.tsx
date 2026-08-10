@@ -74,7 +74,7 @@ export default function CongestionNotice({ route, departAt }: { route: Route; de
 
       <p className="mt-2 text-xs text-inksoft">
         Predicted from live sensor counts and typical crowds for that time of day. Congested means
-        more than 150 people a minute.
+        more than 50 people a minute.
       </p>
     </div>
   );

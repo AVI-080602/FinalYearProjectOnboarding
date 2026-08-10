@@ -15,6 +15,9 @@ Edge cost for routing:  length * (1 + lambda*SLI)
 """
 import heapq
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+MELBOURNE = ZoneInfo("Australia/Melbourne")
 
 import numpy as np
 import pandas as pd
@@ -171,7 +174,7 @@ class SensoryEngine:
         # correction forward; comparing against the departure hour would cancel
         # the time-of-day signal the forecast exists to capture
         if "anchors" not in cache:
-            cache["anchors"] = self.live_anchors(now or datetime.now())
+            cache["anchors"] = self.live_anchors(now or datetime.now(MELBOURNE))
         anchors = cache["anchors"]
 
         step = C.FORECAST_STEP_MIN
@@ -332,7 +335,7 @@ class SensoryEngine:
         self.apply_sli(weights, sensor_vals)
         o = self.nearest_node(*origin)
         t = self.nearest_node(*dest)
-        depart = depart or datetime.now()
+        depart = depart or datetime.now(MELBOURNE)
         cache: dict = {}   # forecast overlays shared across the three variants
         out = []
         for label, lam in C.ROUTE_LAMBDAS.items():

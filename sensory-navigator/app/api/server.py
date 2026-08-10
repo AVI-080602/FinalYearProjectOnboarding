@@ -8,6 +8,9 @@ import math
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+MELBOURNE = ZoneInfo("Australia/Melbourne")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -123,7 +126,8 @@ def routes(req: RouteRequest):
         raise HTTPException(422, "origin and destination are the same place")
     _refresh()
     e = state["engine"]
-    depart = datetime.now() + timedelta(minutes=req.depart_in_min)
+    # profiles are keyed to Melbourne local time; the server may run in UTC
+    depart = datetime.now(MELBOURNE) + timedelta(minutes=req.depart_in_min)
     result = e.route(req.origin, req.destination, req.weights, e.live_by_sensor,
                      req.threshold, depart=depart)
     if not result:
@@ -135,7 +139,7 @@ def routes(req: RouteRequest):
         "depart_at": depart.strftime("%H:%M"),
         "congested_threshold": {
             "level": C.CONGESTED_CROWD,
-            "people_per_min": C.DENSITY_MEDIUM_MAX,
+            "people_per_min": C.DENSITY_LOW_MAX,
         },
         "data_status": e.data_status,
         "attribution": C.ATTRIBUTION,
@@ -177,7 +181,7 @@ def refuges(lat: float, lon: float, tier: int | None = None,
 def forecast(location_id: int, hours: int = 1):
     _refresh()
     hours = max(1, min(hours, 3))
-    df = state["engine"].forecast_sensor(location_id, datetime.now(), hours=hours)
+    df = state["engine"].forecast_sensor(location_id, datetime.now(MELBOURNE), hours=hours)
     if df["counts_per_min"].isna().all():
         raise HTTPException(404, "no profile data for this sensor")
     slots = [

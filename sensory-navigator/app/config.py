@@ -41,10 +41,11 @@ DEFAULT_THRESHOLD = 60          # SLI 0–100 above which an area counts as "Hig
 ROUTE_LAMBDAS = {"Fastest": 0.0, "Balanced": 1.0, "Lowest Sensory Load": 3.0}
 
 # --- Congested corridors (US 1.2) ---
-# A corridor counts as congested at the DMP's "High" density band (150/min),
-# expressed on the engine's 0-1 crowd scale.
-CONGESTED_CROWD = 0.67
-MIN_CORRIDOR_M = 60       # shorter congested runs are sensor noise, not a corridor
+# Calibrated to observed data: typical peak hours reach ~70 people/min, so the
+# DMP's Medium band start (50/min, level 0.33) is where "congested" begins.
+# The High band (150/min) is ~99.9th percentile and would never fire.
+CONGESTED_CROWD = 0.33
+MIN_CORRIDOR_M = 30       # station forecourts are compact: 30 m of dense crowd is real
 FORECAST_STEP_MIN = 15    # granularity for timing the walk against the profiles
 
 # --- IDW interpolation (sensor readings -> graph edges) ---
