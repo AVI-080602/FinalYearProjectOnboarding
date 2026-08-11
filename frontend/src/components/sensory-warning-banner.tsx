@@ -1,6 +1,8 @@
 "use client";
 
 import type { Corridor, Route } from "@/lib/api";
+import { smileyIconHtml } from "@/lib/smiley";
+import { COMFORT } from "./route-card";
 
 /* AC 1.2.2: while following a route, a high-sensory section ahead is called
    out over the map with where it is, how far ahead, and how long it lasts.
@@ -26,9 +28,11 @@ function duration(c: Corridor): string {
 
 export default function SensoryWarningBanner({
   route,
+  alternative,
   onDismiss,
 }: {
   route: Route;
+  alternative: Route | null;
   onDismiss: () => void;
 }) {
   const next = route.congestion[0];
@@ -59,6 +63,23 @@ export default function SensoryWarningBanner({
           {more > 0 && (
             <p className="mt-1 text-xs text-inksoft">
               {more} more busy {more === 1 ? "stretch" : "stretches"} later on this route.
+            </p>
+          )}
+
+          {/* AC 1.2.4: name the map encoding in words, so the light blue and
+              the smiling face are never the only way to find the way out */}
+          {alternative && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-ink">
+              <span
+                aria-hidden
+                className="shrink-0"
+                dangerouslySetInnerHTML={{ __html: smileyIconHtml(18, "") }}
+              />
+              <span>
+                Calmer alternative on the map in light blue, marked with a smiling face:{" "}
+                <span className="font-medium">{COMFORT[alternative.label].name}</span>,{" "}
+                {alternative.minutes} min, load {alternative.sli}.
+              </span>
             </p>
           )}
         </div>

@@ -2,12 +2,31 @@
 
 import "leaflet/dist/leaflet.css";
 
+import L from "leaflet";
 import { useEffect } from "react";
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  Polyline,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import type { Route } from "@/lib/api";
-import { CONGESTION_COLOR, ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
+import { ALTERNATIVE_COLOR, CONGESTION_COLOR, ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
+import { smileyIconHtml } from "@/lib/smiley";
 
 const CBD: [number, number] = [-37.8136, 144.9631];
+
+// safe at module scope: this component is only ever loaded client-side
+// (next/dynamic with ssr: false), so leaflet never runs on the server
+const SMILEY_ICON = L.divIcon({
+  className: "", // no leaflet default box around the face
+  html: smileyIconHtml(34),
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
 
 function FitToRoutes({ routes }: { routes: Route[] }) {
   const map = useMap();
@@ -30,11 +49,13 @@ function FitToRoutes({ routes }: { routes: Route[] }) {
 export default function RouteMap({
   routes,
   selected,
+  alternative,
   origin,
   destination,
 }: {
   routes: Route[];
   selected: Route["label"] | null;
+  alternative: Route | null;
   origin: [number, number] | null;
   destination: [number, number] | null;
 }) {
@@ -72,25 +93,43 @@ export default function RouteMap({
       )}
 
       {routes.map((r) => {
-        const active = selected === null || selected === r.label;
+        // AC 1.2.4: the calmer way out stays fully visible in light blue even
+        // while another route is the one selected
+        const isAlt = alternative?.label === r.label;
+        const active = isAlt || selected === null || selected === r.label;
         return (
           <Polyline
             key={r.label}
             positions={r.coords}
             pathOptions={{
-              color: ROUTE_COLORS[r.label],
-              weight: selected === r.label ? 7 : 5,
+              color: isAlt ? ALTERNATIVE_COLOR : ROUTE_COLORS[r.label],
+              weight: isAlt || selected === r.label ? 7 : 5,
               opacity: active ? 0.9 : 0.25,
-              dashArray: ROUTE_DASH[r.label],
+              dashArray: isAlt ? undefined : ROUTE_DASH[r.label],
               lineCap: "round",
             }}
           >
             <Tooltip sticky>
+              {isAlt ? "Calmer alternative — " : ""}
               {r.label} · {r.minutes} min · load {r.sli}
             </Tooltip>
           </Polyline>
         );
       })}
+
+      {/* AC 1.2.4: smiling-face marker on the alternative, placed mid-route so
+          it never collides with the Start and End markers */}
+      {alternative && alternative.coords.length > 0 && (
+        <Marker
+          position={alternative.coords[Math.floor(alternative.coords.length / 2)]}
+          icon={SMILEY_ICON}
+          zIndexOffset={600}
+        >
+          <Tooltip direction="top" offset={[0, -18]}>
+            Calmer alternative: {alternative.minutes} min · load {alternative.sli}
+          </Tooltip>
+        </Marker>
+      )}
 
       {origin && (
         <CircleMarker

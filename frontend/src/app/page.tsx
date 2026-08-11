@@ -106,6 +106,14 @@ export default function Planner() {
     current.congestion.length > 0 &&
     !warnDismissed.includes(current.label);
   const calmestSli = routes.find((r) => r.label === "Lowest Sensory Load")?.sli ?? 0;
+  // AC 1.2.4: only while the warning is up, and only if something genuinely
+  // calmer than the followed route exists
+  const alternative =
+    showWarning && current
+      ? (routes
+          .filter((r) => r.label !== current.label && r.sli < current.sli)
+          .sort((a, b) => a.sli - b.sli)[0] ?? null)
+      : null;
 
   // honest, human wording: "Updated 12 min ago", never "live" next to a stale age
   const m = dataStatus.match(/live \((\d+) min old, (\d+) sensors\)/);
@@ -254,12 +262,14 @@ export default function Planner() {
           {showWarning && current && (
             <SensoryWarningBanner
               route={current}
+              alternative={alternative}
               onDismiss={() => setWarnDismissed([...warnDismissed, current.label])}
             />
           )}
           <RouteMap
             routes={routes}
             selected={openLabel ?? hoverLabel}
+            alternative={alternative}
             origin={routes.length && origin ? origin.coords : null}
             destination={routes.length && destination ? destination.coords : null}
           />

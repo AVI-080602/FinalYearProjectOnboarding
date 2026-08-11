@@ -16,6 +16,12 @@ export const ROUTE_ORDER: Route["label"][] = ["Lowest Sensory Load", "Balanced",
 // and the panel lists every stretch in words.
 export const CONGESTION_COLOR = "#c05621";
 
+// AC 1.2.4: while a warning is up, the calmer alternative is drawn in light
+// blue and marked with a smiling face. Deliberately outside the three fixed
+// route colours: this is a temporary "here is your way out", not a fourth
+// route identity, and it reverts the moment the warning is dismissed.
+export const ALTERNATIVE_COLOR = "#3fa9dd";
+
 // Redundant encoding: every route differs by dash pattern, not colour alone.
 export const ROUTE_DASH: Record<Route["label"], string | undefined> = {
   "Lowest Sensory Load": undefined, // solid
