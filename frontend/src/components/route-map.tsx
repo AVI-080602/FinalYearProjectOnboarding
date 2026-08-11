@@ -14,7 +14,13 @@ import {
   useMap,
 } from "react-leaflet";
 import type { Route } from "@/lib/api";
-import { ALTERNATIVE_COLOR, CONGESTION_COLOR, ROUTE_COLORS, ROUTE_DASH } from "@/lib/route-colors";
+import {
+  ALTERNATIVE_COLOR,
+  CONGESTION_COLOR,
+  CURRENT_ROUTE_COLOR,
+  ROUTE_COLORS,
+  ROUTE_DASH,
+} from "@/lib/route-colors";
 import { smileyIconHtml } from "@/lib/smiley";
 
 const CBD: [number, number] = [-37.8136, 144.9631];
@@ -50,12 +56,14 @@ export default function RouteMap({
   routes,
   selected,
   alternative,
+  navigating,
   origin,
   destination,
 }: {
   routes: Route[];
   selected: Route["label"] | null;
   alternative: Route | null;
+  navigating: Route["label"] | null;
   origin: [number, number] | null;
   destination: [number, number] | null;
 }) {
@@ -93,24 +101,31 @@ export default function RouteMap({
       )}
 
       {routes.map((r) => {
+        // AC 1.2.1: while navigating, the route being walked is green.
         // AC 1.2.4: the calmer way out stays fully visible in light blue even
-        // while another route is the one selected
-        const isAlt = alternative?.label === r.label;
-        const active = isAlt || selected === null || selected === r.label;
+        // while another route is the one selected.
+        const isCurrent = navigating === r.label;
+        const isAlt = !isCurrent && alternative?.label === r.label;
+        const active = isCurrent || isAlt || selected === null || selected === r.label;
+        const color = isCurrent
+          ? CURRENT_ROUTE_COLOR
+          : isAlt
+            ? ALTERNATIVE_COLOR
+            : ROUTE_COLORS[r.label];
         return (
           <Polyline
             key={r.label}
             positions={r.coords}
             pathOptions={{
-              color: isAlt ? ALTERNATIVE_COLOR : ROUTE_COLORS[r.label],
-              weight: isAlt || selected === r.label ? 7 : 5,
+              color,
+              weight: isCurrent ? 8 : isAlt || selected === r.label ? 7 : 5,
               opacity: active ? 0.9 : 0.25,
-              dashArray: isAlt ? undefined : ROUTE_DASH[r.label],
+              dashArray: isCurrent || isAlt ? undefined : ROUTE_DASH[r.label],
               lineCap: "round",
             }}
           >
             <Tooltip sticky>
-              {isAlt ? "Calmer alternative — " : ""}
+              {isCurrent ? "Current route — " : isAlt ? "Calmer alternative — " : ""}
               {r.label} · {r.minutes} min · load {r.sli}
             </Tooltip>
           </Polyline>

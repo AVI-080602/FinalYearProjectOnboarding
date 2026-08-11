@@ -11,6 +11,7 @@ import RouteCard from "@/components/route-card";
 import RouteDetail from "@/components/route-detail";
 import ThresholdAlert from "@/components/threshold-alert";
 import SensoryWarningBanner from "@/components/sensory-warning-banner";
+import NavigationPanel from "@/components/navigation-panel";
 
 const RouteMap = dynamic(() => import("@/components/route-map"), {
   ssr: false,
@@ -39,6 +40,8 @@ export default function Planner() {
   const [departAt, setDepartAt] = useState("");
   // dismissed per route: switching route is a new warning, not the same one
   const [warnDismissed, setWarnDismissed] = useState<string[]>([]);
+  // AC 1.2.1: the route being walked, once the user has pressed Go now
+  const [navLabel, setNavLabel] = useState<Route["label"] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<string>("checking data…");
@@ -55,6 +58,7 @@ export default function Planner() {
     setLoading(true);
     setError(null);
     setOpenLabel(null);
+    setNavLabel(null); // new search ends any navigation in progress
     setAlertDismissed(false);
     setWarnDismissed([]); // a new search is a new set of conditions
     try {
@@ -95,7 +99,9 @@ export default function Planner() {
     }
   }
 
-  const current = routes.find((r) => r.label === openLabel) ?? null;
+  const navRoute = routes.find((r) => r.label === navLabel) ?? null;
+  // while navigating, the route being walked is the one being followed
+  const current = navRoute ?? routes.find((r) => r.label === openLabel) ?? null;
   const calmest = routes.find((r) => r.label === "Lowest Sensory Load") ?? null;
   const highRoutes = routes.filter((r) => r.band === "High");
   const showAlert = alertsOn && !alertDismissed && highRoutes.length > 0 && !current;
@@ -114,6 +120,11 @@ export default function Planner() {
           .filter((r) => r.label !== current.label && r.sli < current.sli)
           .sort((a, b) => a.sli - b.sli)[0] ?? null)
       : null;
+  // navigating is not comparing: the map carries the route being walked, plus
+  // the calmer way out when one is being offered
+  const mapRoutes = navRoute
+    ? routes.filter((r) => r.label === navRoute.label || r.label === alternative?.label)
+    : routes;
 
   // honest, human wording: "Updated 12 min ago", never "live" next to a stale age
   const m = dataStatus.match(/live \((\d+) min old, (\d+) sensors\)/);
@@ -232,14 +243,24 @@ export default function Planner() {
             </div>
           )}
 
+          {/* AC 1.2.1: the navigation screen replaces the comparison screen */}
+          {navRoute && (
+            <NavigationPanel
+              route={navRoute}
+              departAt={departAt}
+              onExit={() => setNavLabel(null)}
+            />
+          )}
+
           {/* AC 1.1.4-1.1.7: detail panel */}
-          {current && (
+          {current && !navRoute && (
             <RouteDetail
               routes={routes}
               current={current}
               departAt={departAt}
               onSwitch={(l) => setOpenLabel(l)}
               onClose={() => setOpenLabel(null)}
+              onGo={() => setNavLabel(current.label)}
             />
           )}
 
@@ -267,9 +288,10 @@ export default function Planner() {
             />
           )}
           <RouteMap
-            routes={routes}
-            selected={openLabel ?? hoverLabel}
+            routes={mapRoutes}
+            selected={navLabel ?? openLabel ?? hoverLabel}
             alternative={alternative}
+            navigating={navLabel}
             origin={routes.length && origin ? origin.coords : null}
             destination={routes.length && destination ? destination.coords : null}
           />

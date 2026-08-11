@@ -34,12 +34,14 @@ export default function RouteDetail({
   departAt,
   onSwitch,
   onClose,
+  onGo,
 }: {
   routes: Route[];
   current: Route;
   departAt: string;
   onSwitch: (label: Route["label"]) => void;
   onClose: () => void;
+  onGo: () => void;
 }) {
   const maxFactor = Math.max(...routes.flatMap((r) => Object.values(r.breakdown)), 1);
 
@@ -86,6 +88,14 @@ export default function RouteDetail({
         </p>
         <BandChip band={current.band} />
       </div>
+
+      {/* AC 1.2.1: start navigating the route selected on the comparison screen */}
+      <button
+        onClick={onGo}
+        className="el-1 mt-3 w-full rounded-xl bg-euca px-4 py-2.5 font-semibold text-card transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-ink"
+      >
+        Go now
+      </button>
 
       {/* AC 1.2.1: congested corridors predicted along this route */}
       <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-inksoft">

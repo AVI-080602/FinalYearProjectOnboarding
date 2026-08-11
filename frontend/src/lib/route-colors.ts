@@ -22,6 +22,10 @@ export const CONGESTION_COLOR = "#c05621";
 // route identity, and it reverts the moment the warning is dismissed.
 export const ALTERNATIVE_COLOR = "#3fa9dd";
 
+// AC 1.2.1: once navigation starts, the route being walked is the current
+// route and is drawn in green, whichever of the three it happens to be.
+export const CURRENT_ROUTE_COLOR = "#0d8267";
+
 // Redundant encoding: every route differs by dash pattern, not colour alone.
 export const ROUTE_DASH: Record<Route["label"], string | undefined> = {
   "Lowest Sensory Load": undefined, // solid
